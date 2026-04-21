@@ -1,101 +1,81 @@
 # Figure Studio
 
-Figure Studio is an SVG-first editor for paper figures.
+Figure Studio is an SVG-first editor for building and revising paper figures in this repository. The source of truth for each figure is `figures/<figure-id>/figure.svg`, and the app is built around editing those SVGs directly rather than generating figures from another format.
 
-## Run
+## Purpose
 
-Backend:
+Use this repo to:
+
+- create new figures from the maintained SVG templates
+- edit existing figures in a structured canvas/inspector workflow
+- export versioned deliverables such as SVG, PDF, and caption artifacts
+- review proposed figure edits through Codex staging before applying them to live files
+
+## Setup From Scratch
+
+Requirements:
+
+- Python 3
+- Node.js and npm
+
+Install frontend dependencies:
+
+```bash
+cd app
+npm install
+```
+
+Install backend dependencies:
+
+```bash
+python3 -m pip install -r backend/requirements.txt
+```
+
+Start the backend:
 
 ```bash
 python3 -m uvicorn backend.app:app --reload --port 8123
 ```
 
-Frontend:
+Start the frontend in a second terminal:
 
 ```bash
 cd app
 npm run dev
 ```
 
-Optional frontend API override:
+If the frontend needs an explicit API target:
 
 ```bash
 cd app
 VITE_API_ROOT=http://127.0.0.1:8123 npm run dev
 ```
 
-## Layout
-
-- `app/`
-  React editor UI
-- `backend/`
-  FastAPI routes plus workspace/file/event services
-- `figures/<figure-id>/figure.svg`
-  canonical figure source
-- `figures/<figure-id>/assets/`
-  figure-local raster assets
-- `templates/`
-  SVG starter templates
-- `exports/`
-  generated SVG, PDF, and LaTeX caption outputs, versioned under `exports/<figure-id>/v###/`
-- `workspace.json`
-  figure registry, export targets, publish targets, and bookmarks
-
 ## Workflow
 
-1. Create a figure from a template.
-2. Edit the SVG in the canvas, hierarchy, and inspector.
-3. Save to write `figure.svg`.
-4. Export to generate a new versioned bundle in `exports/<figure-id>/v###/`.
-5. Publish to copy the latest exported bundle to configured destinations.
+1. Open the app and select an existing figure or create one from a template.
+2. Edit the figure directly in the SVG canvas using the hierarchy and inspector panels.
+3. Save to update the canonical `figure.svg` for that figure.
+4. Export when you want a versioned output bundle under `exports/<figure-id>/v###/`.
+5. Publish when you want the latest exported assets copied to the destinations configured in `workspace.json`.
 
-Color controls in the toolbar and inspector use in-browser HSV popovers with a wheel plus value slider instead of the host OS color picker.
+## Codex Review Workflow
 
-## Codex Chat
+Codex runs in review-first mode. Proposed changes are made in staged workspace copies first, then explicitly applied back to live files.
 
-- Codex sessions are review-first and operate on staged workspace copies before any live files are updated.
-- Figure-scoped chats target the active figure. `/global` stages the whole `figures/` workspace plus a workspace manifest for multi-figure edits.
-- Prompts can request multiple result variants. Each variant stays pending until you explicitly apply or reject it.
-- Applying a figure-scoped result writes the chosen staged change back to the live figure file. Applying a global result writes the chosen staged file set back to the live workspace.
-- The backend stores local Codex run state under `.codex_chat/`. That directory is runtime data and should stay untracked.
+- figure-scoped chats stage the active figure
+- `/global` stages the wider figures workspace for multi-figure changes
+- prompts can produce multiple variants, and each variant stays pending until you apply or reject it
+- applying a result writes the selected staged change back to the live figure or workspace
 
-## SVG Conventions
+The backend stores Codex runtime state in `.codex_chat/`. That directory is local runtime data and should remain untracked.
 
-Each figure folder should look like:
+## Repo Rules
 
-```text
-figures/<figure-id>/
-  figure.svg
-  assets/
-```
-
-Editable SVG nodes should have stable ids. Use `data-figure-role` where appropriate:
-
-- `panel`
-- `slot`
-- `text`
-- `item`
-- `group`
-
-Image slots store their asset path with `data-asset-path`.
-
-Saved figures should be rebuilt from one of the maintained template families:
-
-- `compare-2col.svg`
-- `design-principles.svg`
-- `detail-5panel.svg`
-- `gallery-4tile.svg`
-- `pipeline-3stage.svg`
-- `scenario-3panel.svg`
-- `teaser-4panel.svg`
-- `terminology.svg`
-
-Do not save a separate figure title/subtitle hero header inside `figure.svg`; the editor tab bar identifies the active figure.
-
-## Notes
-
-- `figure.svg` is the only supported source of truth.
-- The old HTML/CSS figure workflow has been removed.
-- Editor-only state does not belong in saved figure files.
-- Saved SVGs should stay lean: no autogen `auto-*` ids and no serialized editor-frame metadata.
-- `workspace.json` should contain only repo-safe figure metadata and publish/bookmark paths that you intend to share.
+- `figure.svg` is the source of truth for each figure
+- figure assets stay figure-local under `figures/<figure-id>/assets/`
+- saved SVGs should keep stable semantic ids where possible
+- use `data-figure-role` values such as `panel`, `slot`, `text`, `item`, and `group` when relevant
+- image slots should continue using `data-asset-path`
+- do not store editor-only state or generated layout metadata in saved SVG files
+- do not reintroduce the old HTML/CSS figure workflow
