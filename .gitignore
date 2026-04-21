@@ -1,0 +1,16 @@
+.codex_chat/
+backend/__pycache__/
+backend/routes/__pycache__/
+backend/services/__pycache__/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.pyc
+app/node_modules/
+app/dist/
+app/.env
+app/.env.local
+workspace.local.json

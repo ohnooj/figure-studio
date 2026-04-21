@@ -1,0 +1,108 @@
+.studio-shell {
+  --app-bg:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 28%),
+    linear-gradient(135deg, #ede7dc, #d8d0c5 60%, #cac2b7);
+  --panel-bg: rgba(255, 252, 247, 0.9);
+  --panel-border: rgba(89, 77, 68, 0.22);
+  --text-main: #1f1f1f;
+  --text-muted: #62594f;
+  --button-bg: #f5f1ea;
+  --button-hover-bg: #e7f0f8;
+  --button-active-bg: #dde7ef;
+  --button-border: #6d665f;
+  --button-hover-border: #2b648d;
+  --button-active-border: #5b7f9d;
+  --button-text: #292520;
+  --button-active-text: #242a30;
+  --tab-bg: rgba(255, 250, 244, 0.92);
+  --tab-border: rgba(89, 77, 68, 0.24);
+  --tab-hover-border: rgba(43, 100, 141, 0.45);
+  --tab-active-bg: color-mix(in srgb, #2b648d 18%, rgba(255, 250, 244, 0.92));
+  --tab-active-border: rgba(43, 100, 141, 0.52);
+  --tab-active-text: #244966;
+  --input-bg: #fffdf8;
+  --input-border: #bbb0a4;
+  --preview-bg:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(239, 232, 222, 0.66)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.12) 10px,
+      rgba(226, 218, 206, 0.12) 10px,
+      rgba(226, 218, 206, 0.12) 20px
+    );
+  --status-ready: #22674e;
+  --status-connecting: #7c5b19;
+  --status-error: #9f1d1d;
+  --accent: #2b648d;
+  --tree-depth-0: #c4571a;
+  --tree-depth-1: #0f6fd6;
+  --tree-depth-2: #1f8a39;
+  --tree-depth-3: #7a3ff2;
+  --tree-depth-4: #c61f69;
+  --tree-depth-5: #007c78;
+  --toast-bg: rgba(31, 31, 31, 0.92);
+  --toast-text: #fffaf3;
+  --font-size-body: 0.86rem;
+  --font-size-small: 0.76rem;
+  --font-size-micro: 0.68rem;
+  --font-size-heading: 0.94rem;
+  --font-size-title: 0.94rem;
+  --line-height-body: 1.45;
+  height: 100vh;
+  padding: 0;
+  color: var(--text-main);
+  background: var(--app-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.studio-shell[data-theme="dark"] {
+  --app-bg:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 24%),
+    linear-gradient(135deg, #1e2126, #20242d 60%, #171a20);
+  --panel-bg: rgba(29, 32, 39, 0.92);
+  --panel-border: rgba(188, 198, 214, 0.18);
+  --text-main: #f5f0e7;
+  --text-muted: #c2baae;
+  --button-bg: #2b313a;
+  --button-hover-bg: #36414d;
+  --button-active-bg: #3d4a58;
+  --button-border: #5d6978;
+  --button-hover-border: #8ab7dc;
+  --button-active-border: #9cc2e0;
+  --button-text: #f5f0e7;
+  --button-active-text: #f7f3eb;
+  --tab-bg: rgba(41, 46, 56, 0.94);
+  --tab-border: rgba(188, 198, 214, 0.24);
+  --tab-hover-border: rgba(110, 167, 214, 0.6);
+  --tab-active-bg: color-mix(in srgb, #6ea7d6 24%, rgba(41, 46, 56, 0.94));
+  --tab-active-border: rgba(138, 183, 220, 0.7);
+  --tab-active-text: #eef5fb;
+  --input-bg: #232933;
+  --input-border: #596273;
+  --preview-bg:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(40, 45, 56, 0.9)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 10px,
+      rgba(0, 0, 0, 0.03) 10px,
+      rgba(0, 0, 0, 0.03) 20px
+    );
+  --status-ready: #7fd29a;
+  --status-connecting: #e7c86e;
+  --status-error: #f18989;
+  --accent: #6ea7d6;
+  --tree-depth-0: #c9a889;
+  --tree-depth-1: #6ea7d6;
+  --tree-depth-2: #8ec47e;
+  --tree-depth-3: #d09a71;
+  --tree-depth-4: #a89ce0;
+  --tree-depth-5: #d885a3;
+  --toast-bg: rgba(245, 240, 231, 0.94);
+  --toast-text: #1f2126;
+}

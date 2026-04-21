@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" id="figure-root">
+  <defs>
+    <style>
+    .panel-frame { fill: #fffdfa; stroke: #cabfb2; stroke-width: 2; }
+    .panel-label { font: 700 24px Georgia, serif; fill: #2b2a28; }
+    .panel-copy { font: 500 18px Georgia, serif; fill: #5a5148; }
+    .slot-frame { fill: #ebe6df; stroke: #c5b8aa; stroke-width: 2; stroke-dasharray: 10 7; }
+    .slot-placeholder { font: 500 18px Georgia, serif; fill: #71675b; }
+    .annotation-stroke { fill: none; stroke: #d16e2b; stroke-width: 10; stroke-linecap: round; }
+    .annotation-point { fill: #2b648d; stroke: #ffffff; stroke-width: 3; }
+    .arrow-stroke { fill: none; stroke: #7a7167; stroke-width: 4; stroke-linecap: round; marker-end: url(#arrow-head); }
+
+    </style>
+    <marker id="arrow-head" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#7a7167" />
+    </marker>
+  </defs>
+  <rect width="1400" height="900" fill="#ffffff" rx="24" />
+
+  <g id="blank-canvas" data-figure-role="group" data-figure-label="blank canvas" transform="translate(80 170)">
+    <rect id="blank-board" data-figure-role="item" data-figure-label="artboard" class="panel-frame" x="0" y="0" width="1240" height="600" rx="32" />
+    <text id="blank-copy" data-figure-role="text" data-figure-label="blank copy" class="panel-copy" x="44" y="78">Start with a clean SVG figure, then add panels, slots, labels, and annotations.</text>
+    <rect class="slot-frame" data-slot-target="blank-slot" x="80" y="120" width="1080" height="400" rx="22" />
+    <image id="blank-slot" data-figure-role="slot" data-figure-label="main slot" data-placeholder-id="blank-slot-placeholder" x="80" y="120" width="1080" height="400" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href="" />
+    <text id="blank-slot-placeholder" class="slot-placeholder" data-slot-target="blank-slot" x="620" y="334" text-anchor="middle">Drop image or build vector layers here</text>
+  </g>
+</svg>

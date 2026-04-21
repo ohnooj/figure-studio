@@ -1,0 +1,74 @@
+:root {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: #ede7dc;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--button-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-radius: 8px;
+  min-height: 1.55rem;
+  padding: 0.14rem 0.48rem;
+  font-size: var(--font-size-small);
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: var(--button-hover-border);
+}
+
+button:active:not(:disabled) {
+  background: var(--button-active-bg);
+  border-color: var(--button-active-border);
+  color: var(--button-active-text);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  padding: 0.36rem 0.52rem;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+textarea {
+  resize: vertical;
+}
+
+code {
+  background: rgba(79, 64, 50, 0.08);
+  border-radius: 6px;
+  padding: 0.05rem 0.35rem;
+}

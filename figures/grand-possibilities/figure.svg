@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 960" id="figure-root">
+  <defs>
+    <style>
+    .panel-frame { fill: #fffdfa; stroke: #cabfb2; stroke-width: 2; }
+    .panel-label { font: 700 24px Georgia, serif; fill: #2b2a28; }
+    .panel-copy { font: 500 18px Georgia, serif; fill: #5a5148; }
+    .slot-frame { fill: #ebe6df; stroke: #c5b8aa; stroke-width: 2; stroke-dasharray: 10 7; }
+    .slot-placeholder { font: 500 18px Georgia, serif; fill: #71675b; }
+    .annotation-stroke { fill: none; stroke: #d16e2b; stroke-width: 6; stroke-linecap: round; }
+    .annotation-point { fill: #2b648d; stroke: #ffffff; stroke-width: 3; }
+    .arrow-stroke { fill: none; stroke: #7a7167; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-head); }
+
+    </style>
+    <marker id="arrow-head" markerWidth="8" markerHeight="8" refX="6.2" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L6.8,3 z" fill="#7a7167"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="960" fill="#ffffff" rx="24" id="auto-rect-0"/>
+
+  <g id="panel-a" data-figure-role="panel" data-figure-label="panel a" transform="translate(70 150)">
+    <rect class="panel-frame" x="0" y="0" width="610" height="290" rx="28" id="auto-rect-1"/>
+    <rect class="slot-frame" data-slot-target="slot-a" x="28" y="80" width="554" height="130" rx="18" id="auto-rect-2"/>
+    <image id="slot-a" data-figure-role="slot" data-figure-label="slot a" data-placeholder-id="slot-a-placeholder" x="28" y="80" width="554" height="130" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+    <text id="slot-a-placeholder" class="slot-placeholder" data-slot-target="slot-a" x="305.0" y="145.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-a" data-figure-role="group" data-figure-label="annotation a" transform="translate(52 176)">
+      <path class="annotation-stroke" d="M18 54 H530" id="auto-path-3"/>
+      <circle class="annotation-point" cx="530" cy="54" r="10" id="auto-circle-4"/>
+    </g>
+    <text id="body-a" data-figure-role="text" data-figure-label="body a" class="panel-copy" x="30" y="246"/>
+  </g>
+
+  <g id="panel-b" data-figure-role="panel" data-figure-label="panel b" transform="translate(715 150)">
+    <rect class="panel-frame" x="0" y="0" width="610" height="290" rx="28" id="auto-rect-5"/>
+    <rect class="slot-frame" data-slot-target="slot-b" x="28" y="80" width="554" height="130" rx="18" id="auto-rect-6"/>
+    <image id="slot-b" data-figure-role="slot" data-figure-label="slot b" data-placeholder-id="slot-b-placeholder" x="28" y="80" width="554" height="130" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+    <text id="slot-b-placeholder" class="slot-placeholder" data-slot-target="slot-b" x="305.0" y="145.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-b" data-figure-role="group" data-figure-label="annotation b" transform="translate(52 176)">
+      <path class="annotation-stroke" d="M18 54 H470" id="auto-path-7"/>
+      <circle class="annotation-point" cx="470" cy="54" r="10" id="auto-circle-8"/>
+    </g>
+    <text id="body-b" data-figure-role="text" data-figure-label="body b" class="panel-copy" x="30" y="246"/>
+  </g>
+
+  <g id="panel-c" data-figure-role="panel" data-figure-label="panel c" transform="translate(70 520)">
+    <rect class="panel-frame" x="0" y="0" width="610" height="290" rx="28" id="auto-rect-9"/>
+    <rect class="slot-frame" data-slot-target="slot-c" x="28" y="80" width="554" height="130" rx="18" id="auto-rect-10"/>
+    <image id="slot-c" data-figure-role="slot" data-figure-label="slot c" data-placeholder-id="slot-c-placeholder" x="28" y="80" width="554" height="130" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+    <text id="slot-c-placeholder" class="slot-placeholder" data-slot-target="slot-c" x="305.0" y="145.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-c" data-figure-role="group" data-figure-label="annotation c" transform="translate(52 176)">
+      <path class="annotation-stroke" d="M18 54 H410" id="auto-path-11"/>
+      <circle class="annotation-point" cx="410" cy="54" r="10" id="auto-circle-12"/>
+    </g>
+    <text id="body-c" data-figure-role="text" data-figure-label="body c" class="panel-copy" x="30" y="246"/>
+  </g>
+
+  <g id="panel-d" data-figure-role="panel" data-figure-label="panel d" transform="translate(715 520)">
+    <rect class="panel-frame" x="0" y="0" width="610" height="290" rx="28" id="auto-rect-13"/>
+    <rect class="slot-frame" data-slot-target="slot-d" x="28" y="80" width="554" height="130" rx="18" id="auto-rect-14"/>
+    <image id="slot-d" data-figure-role="slot" data-figure-label="slot d" data-placeholder-id="slot-d-placeholder" x="28" y="80" width="554" height="130" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+    <text id="slot-d-placeholder" class="slot-placeholder" data-slot-target="slot-d" x="305.0" y="145.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-d" data-figure-role="group" data-figure-label="annotation d" transform="translate(52 176)">
+      <path class="annotation-stroke" d="M18 54 H350" id="auto-path-15"/>
+      <circle class="annotation-point" cx="350" cy="54" r="10" id="auto-circle-16"/>
+    </g>
+    <text id="body-d" data-figure-role="text" data-figure-label="body d" class="panel-copy" x="30" y="246"/>
+  </g>
+
+  <g id="panel-flow" data-figure-role="group" data-figure-label="panel flow">
+    <path class="arrow-stroke" d="M680 312 H698 Q715 312 715 295"/>
+    <path class="arrow-stroke" d="M1020 440 V462 Q1020 478 1004 478 H398 Q375 478 375 501 V520"/>
+    <path class="arrow-stroke" d="M680 682 H698 Q715 682 715 665"/>
+  </g>
+</svg>

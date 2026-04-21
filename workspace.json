@@ -1,0 +1,232 @@
+{
+  "version": 3,
+  "figures": [
+    {
+      "id": "applications-overview",
+      "title": "Applications Overview",
+      "description": "",
+      "folder": "figures/applications-overview",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/applications-overview.pdf",
+        "published/applications-overview.svg",
+        "published/applications-overview.tex"
+      ]
+    },
+    {
+      "id": "clustering-detail",
+      "title": "Clustering Detail",
+      "description": "",
+      "folder": "figures/clustering-detail",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/clustering-detail.pdf",
+        "published/clustering-detail.svg",
+        "published/clustering-detail.tex"
+      ]
+    },
+    {
+      "id": "design-principles",
+      "title": "Design Principles",
+      "description": "",
+      "folder": "figures/design-principles",
+      "entrySvg": "figure.svg",
+      "templateId": "design-principles",
+      "publishTargets": [
+        "published/design-principles.pdf",
+        "published/design-principles.svg",
+        "published/design-principles.tex"
+      ]
+    },
+    {
+      "id": "grand-possibilities",
+      "title": "Grand Possibilities",
+      "description": "",
+      "folder": "figures/grand-possibilities",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/grand-possibilities.pdf",
+        "published/grand-possibilities.svg",
+        "published/grand-possibilities.tex"
+      ]
+    },
+    {
+      "id": "limitations",
+      "title": "Limitations",
+      "description": "",
+      "folder": "figures/limitations",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/limitations.pdf",
+        "published/limitations.svg",
+        "published/limitations.tex"
+      ]
+    },
+    {
+      "id": "method-overview",
+      "title": "Method Overview",
+      "description": "",
+      "folder": "figures/method-overview",
+      "entrySvg": "figure.svg",
+      "templateId": "pipeline-3stage",
+      "publishTargets": [
+        "published/method-overview.pdf",
+        "published/method-overview.svg",
+        "published/method-overview.tex"
+      ]
+    },
+    {
+      "id": "method-terminology",
+      "title": "Method Terminology",
+      "description": "",
+      "folder": "figures/method-terminology",
+      "entrySvg": "figure.svg",
+      "templateId": "terminology",
+      "publishTargets": [
+        "published/method-terminology.pdf",
+        "published/method-terminology.svg",
+        "published/method-terminology.tex"
+      ]
+    },
+    {
+      "id": "nodegraph-dependency",
+      "title": "Nodegraph Dependency",
+      "description": "",
+      "folder": "figures/nodegraph-dependency",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/nodegraph-dependency.pdf",
+        "published/nodegraph-dependency.svg",
+        "published/nodegraph-dependency.tex"
+      ]
+    },
+    {
+      "id": "problem-contrast",
+      "title": "Problem Contrast",
+      "description": "",
+      "folder": "figures/problem-contrast",
+      "entrySvg": "figure.svg",
+      "templateId": "compare-2col",
+      "publishTargets": [
+        "published/problem-contrast.pdf",
+        "published/problem-contrast.svg",
+        "published/problem-contrast.tex"
+      ]
+    },
+    {
+      "id": "scenario-debugging",
+      "title": "Scenario Debugging",
+      "description": "",
+      "folder": "figures/scenario-debugging",
+      "entrySvg": "figure.svg",
+      "templateId": "scenario-3panel",
+      "publishTargets": [
+        "published/scenario-debugging.pdf",
+        "published/scenario-debugging.svg",
+        "published/scenario-debugging.tex"
+      ]
+    },
+    {
+      "id": "scenario-distributed",
+      "title": "Scenario Distributed",
+      "description": "",
+      "folder": "figures/scenario-distributed",
+      "entrySvg": "figure.svg",
+      "templateId": "scenario-3panel",
+      "publishTargets": [
+        "published/scenario-distributed.pdf",
+        "published/scenario-distributed.svg",
+        "published/scenario-distributed.tex"
+      ]
+    },
+    {
+      "id": "scenario-local-variation",
+      "title": "Scenario Local Variation",
+      "description": "",
+      "folder": "figures/scenario-local-variation",
+      "entrySvg": "figure.svg",
+      "templateId": "scenario-3panel",
+      "publishTargets": [
+        "published/scenario-local-variation.pdf",
+        "published/scenario-local-variation.svg",
+        "published/scenario-local-variation.tex"
+      ]
+    },
+    {
+      "id": "scenario-localized-buildup",
+      "title": "Scenario Localized Buildup",
+      "description": "",
+      "folder": "figures/scenario-localized-buildup",
+      "entrySvg": "figure.svg",
+      "templateId": "scenario-3panel",
+      "publishTargets": [
+        "published/scenario-localized-buildup.pdf",
+        "published/scenario-localized-buildup.svg",
+        "published/scenario-localized-buildup.tex"
+      ]
+    },
+    {
+      "id": "slider-detail",
+      "title": "Slider Detail",
+      "description": "",
+      "folder": "figures/slider-detail",
+      "entrySvg": "figure.svg",
+      "templateId": "detail-5panel",
+      "publishTargets": [
+        "published/slider-detail.pdf",
+        "published/slider-detail.svg",
+        "published/slider-detail.tex"
+      ]
+    },
+    {
+      "id": "teaser",
+      "title": "Teaser",
+      "description": "",
+      "folder": "figures/teaser",
+      "entrySvg": "figure.svg",
+      "templateId": "teaser-4panel",
+      "publishTargets": [
+        "published/teaser.pdf",
+        "published/teaser.svg",
+        "published/teaser.tex"
+      ]
+    },
+    {
+      "id": "visual-query-detail",
+      "title": "Visual Query Detail",
+      "description": "",
+      "folder": "figures/visual-query-detail",
+      "entrySvg": "figure.svg",
+      "templateId": "detail-5panel",
+      "publishTargets": [
+        "published/visual-query-detail.pdf",
+        "published/visual-query-detail.svg",
+        "published/visual-query-detail.tex"
+      ]
+    },
+    {
+      "id": "workflow-context",
+      "title": "Workflow Context",
+      "description": "",
+      "folder": "figures/workflow-context",
+      "entrySvg": "figure.svg",
+      "templateId": "blank",
+      "publishTargets": [
+        "published/workflow-context.pdf",
+        "published/workflow-context.svg",
+        "published/workflow-context.tex"
+      ]
+    }
+  ],
+  "bookmarks": [],
+  "recentFigureIds": [
+    "teaser",
+    "method-overview",
+    "design-principles"
+  ]
+}

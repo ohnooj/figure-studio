@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 760" id="figure-root">
+  <defs>
+    <style>
+    .panel-frame { fill: #fffdfa; stroke: #cabfb2; stroke-width: 2; }
+    .panel-label { font: 700 24px Georgia, serif; fill: #2b2a28; }
+    .panel-copy { font: 500 18px Georgia, serif; fill: #5a5148; }
+    .slot-frame { fill: #ebe6df; stroke: #c5b8aa; stroke-width: 2; stroke-dasharray: 10 7; }
+    .slot-placeholder { font: 500 18px Georgia, serif; fill: #71675b; }
+    .annotation-stroke { fill: none; stroke: #d16e2b; stroke-width: 10; stroke-linecap: round; }
+    .annotation-point { fill: #2b648d; stroke: #ffffff; stroke-width: 3; }
+    .arrow-stroke { fill: none; stroke: #7a7167; stroke-width: 4; stroke-linecap: round; marker-end: url(#arrow-head); }
+
+    </style>
+    <marker id="arrow-head" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#7a7167" />
+    </marker>
+  </defs>
+  <rect width="1400" height="760" fill="#ffffff" rx="24" />
+
+  <g id="panel-a" data-figure-role="panel" data-figure-label="panel a" transform="translate(40 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" />
+    <text id="panel-a-label" data-figure-role="text" data-figure-label="panel label a" class="panel-label" x="28" y="44">(a)</text>
+    <rect class="slot-frame" data-slot-target="slot-a" x="28" y="80" width="244" height="180" rx="18" />
+    <image id="slot-a" data-figure-role="slot" data-figure-label="slot a" data-placeholder-id="slot-a-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href="" />
+    <text id="slot-a-placeholder" class="slot-placeholder" data-slot-target="slot-a" x="150.0" y="170.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-a" data-figure-role="group" data-figure-label="annotation a" transform="translate(52 284)">
+      <path class="annotation-stroke" d="M18 62 C72 8 130 6 188 34" />
+      <circle class="annotation-point" cx="188" cy="34" r="10" />
+    </g>
+    <text id="body-a" data-figure-role="text" data-figure-label="body a" class="panel-copy" x="30" y="352">Problem visible in the viewport.</text>
+  </g>
+
+  <g id="panel-b" data-figure-role="panel" data-figure-label="panel b" transform="translate(370 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" />
+    <text id="panel-b-label" data-figure-role="text" data-figure-label="panel label b" class="panel-label" x="28" y="44">(b)</text>
+    <rect class="slot-frame" data-slot-target="slot-b" x="28" y="80" width="244" height="180" rx="18" />
+    <image id="slot-b" data-figure-role="slot" data-figure-label="slot b" data-placeholder-id="slot-b-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href="" />
+    <text id="slot-b-placeholder" class="slot-placeholder" data-slot-target="slot-b" x="150.0" y="170.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-b" data-figure-role="group" data-figure-label="annotation b" transform="translate(52 284)">
+      <path class="annotation-stroke" d="M18 62 C72 8 130 6 188 34" />
+      <circle class="annotation-point" cx="188" cy="34" r="10" />
+    </g>
+    <text id="body-b" data-figure-role="text" data-figure-label="body b" class="panel-copy" x="30" y="352">History or candidates become visible.</text>
+  </g>
+
+  <g id="panel-c" data-figure-role="panel" data-figure-label="panel c" transform="translate(700 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" />
+    <text id="panel-c-label" data-figure-role="text" data-figure-label="panel label c" class="panel-label" x="28" y="44">(c)</text>
+    <rect class="slot-frame" data-slot-target="slot-c" x="28" y="80" width="244" height="180" rx="18" />
+    <image id="slot-c" data-figure-role="slot" data-figure-label="slot c" data-placeholder-id="slot-c-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href="" />
+    <text id="slot-c-placeholder" class="slot-placeholder" data-slot-target="slot-c" x="150.0" y="170.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-c" data-figure-role="group" data-figure-label="annotation c" transform="translate(52 284)">
+      <path class="annotation-stroke" d="M18 62 C72 8 130 6 188 34" />
+      <circle class="annotation-point" cx="188" cy="34" r="10" />
+    </g>
+    <text id="body-c" data-figure-role="text" data-figure-label="body c" class="panel-copy" x="30" y="352">Reduction keeps only representative states.</text>
+  </g>
+
+  <g id="panel-d" data-figure-role="panel" data-figure-label="panel d" transform="translate(1030 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" />
+    <text id="panel-d-label" data-figure-role="text" data-figure-label="panel label d" class="panel-label" x="28" y="44">(d)</text>
+    <rect class="slot-frame" data-slot-target="slot-d" x="28" y="80" width="244" height="180" rx="18" />
+    <image id="slot-d" data-figure-role="slot" data-figure-label="slot d" data-placeholder-id="slot-d-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href="" />
+    <text id="slot-d-placeholder" class="slot-placeholder" data-slot-target="slot-d" x="150.0" y="170.0" text-anchor="middle">Drop image</text>
+    <g id="annotation-d" data-figure-role="group" data-figure-label="annotation d" transform="translate(52 284)">
+      <path class="annotation-stroke" d="M18 62 C72 8 130 6 188 34" />
+      <circle class="annotation-point" cx="188" cy="34" r="10" />
+    </g>
+    <text id="body-d" data-figure-role="text" data-figure-label="body d" class="panel-copy" x="30" y="352">An in-situ slider returns to the artifact.</text>
+  </g>
+  <path id="arrow-ab" data-figure-role="item" data-figure-label="flow arrow ab" class="arrow-stroke" d="M340 380 C315.0 370, 395.0 390, 370 380" />
+  <path id="arrow-bc" data-figure-role="item" data-figure-label="flow arrow bc" class="arrow-stroke" d="M670 380 C645.0 370, 725.0 390, 700 380" />
+  <path id="arrow-cd" data-figure-role="item" data-figure-label="flow arrow cd" class="arrow-stroke" d="M1000 380 C975.0 370, 1055.0 390, 1030 380" />
+</svg>

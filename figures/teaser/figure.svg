@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 760" id="figure-root">
+  <defs>
+    <style>
+    .panel-frame { fill: #fffdfa; stroke: #cabfb2; stroke-width: 2; }
+    .slot-frame { fill: #ebe6df; stroke: #c5b8aa; stroke-width: 2; stroke-dasharray: 10 7; }
+    </style>
+  </defs>
+  <rect width="1400" height="760" fill="#ffffff" rx="24" id="auto-rect-0"/>
+
+  <g id="panel-a" data-figure-role="panel" data-figure-label="panel a" transform="translate(40 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" id="auto-rect-1"/>
+    <rect class="slot-frame" data-slot-target="slot-a" x="28" y="80" width="244" height="180" rx="18" id="auto-rect-2"/>
+    <image id="slot-a" data-figure-role="slot" data-figure-label="slot a" data-placeholder-id="slot-a-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+  </g>
+
+  <g id="panel-b" data-figure-role="panel" data-figure-label="panel b" transform="translate(370 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" id="auto-rect-5"/>
+    <rect class="slot-frame" data-slot-target="slot-b" x="28" y="80" width="244" height="180" rx="18" id="auto-rect-6"/>
+    <image id="slot-b" data-figure-role="slot" data-figure-label="slot b" data-placeholder-id="slot-b-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+  </g>
+
+  <g id="panel-c" data-figure-role="panel" data-figure-label="panel c" transform="translate(700 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" id="auto-rect-9"/>
+    <rect class="slot-frame" data-slot-target="slot-c" x="28" y="80" width="244" height="180" rx="18" id="auto-rect-10"/>
+    <image id="slot-c" data-figure-role="slot" data-figure-label="slot c" data-placeholder-id="slot-c-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+  </g>
+
+  <g id="panel-d" data-figure-role="panel" data-figure-label="panel d" transform="translate(1030 170)">
+    <rect class="panel-frame" x="0" y="0" width="300" height="420" rx="28" id="auto-rect-13"/>
+    <rect class="slot-frame" data-slot-target="slot-d" x="28" y="80" width="244" height="180" rx="18" id="auto-rect-14"/>
+    <image id="slot-d" data-figure-role="slot" data-figure-label="slot d" data-placeholder-id="slot-d-placeholder" x="28" y="80" width="244" height="180" preserveAspectRatio="xMidYMid slice" pointer-events="all" opacity="0.001" href=""/>
+  </g>
+</svg>

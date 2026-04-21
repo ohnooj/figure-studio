@@ -1,0 +1,14 @@
+export const DEFAULT_LEFT_WIDTH = 280;
+export const DEFAULT_RIGHT_WIDTH = 300;
+export const MIN_LEFT_WIDTH = 220;
+export const MIN_RIGHT_WIDTH = 240;
+export const DEFAULT_RIGHT_WIDTH_RATIO = 0.3;
+export const DEFAULT_OBJECT_HEIGHT = 480;
+export const MIN_OBJECT_HEIGHT = 120;
+export const MIN_ASSET_HEIGHT = 140;
+export const DEFAULT_CODEX_MARKS_HEIGHT = 260;
+export const MIN_CODEX_MARKS_HEIGHT = 110;
+export const MIN_PAYLOAD_HEIGHT = 160;
+export const DEFAULT_BOTTOM_HEIGHT = 180;
+export const MIN_BOTTOM_HEIGHT = 120;
+export const MAX_HISTORY = 100;
