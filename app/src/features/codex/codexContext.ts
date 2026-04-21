@@ -42,11 +42,19 @@ function svgToBase64DataUrl(svg: string): string {
 }
 
 export function buildFigureContext(
-  figureSource: FigureSource,
+  figureSource: FigureSource | null | undefined,
   selectedObjects: CodexSelectedObjectSummary[],
   annotations: CodexAnnotation[],
   options?: { includeAnnotatedImage?: boolean },
 ): CodexFigureContext {
+  if (!figureSource?.figure) {
+    return {
+      ...EMPTY_FIGURE_CONTEXT,
+      selectedIds: selectedObjects.map((item) => item.id),
+      selectedObjects,
+      annotations,
+    };
+  }
   return {
     figureId: figureSource.figure.id,
     figureTitle: figureSource.figure.title,

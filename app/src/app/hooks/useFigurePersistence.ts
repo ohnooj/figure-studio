@@ -183,6 +183,14 @@ export function useFigurePersistence(config: {
     });
     try {
       const exported = await prepareExport(source);
+      if (!exported) {
+        endTraceOperation(config.debugLog, operation, {
+          figureId: source.figure.id,
+          skipped: true,
+          reason: "no-export-result",
+        });
+        return;
+      }
       if (!exported.pdf.ok && exported.pdf.message) {
         config.setStatus(`Exported ${source.figure.id} to ${exported.version}. PDF unavailable: ${exported.pdf.message}`);
         endTraceOperation(config.debugLog, operation, {
@@ -222,6 +230,14 @@ export function useFigurePersistence(config: {
     });
     try {
       const exported = await prepareExport(source);
+      if (!exported) {
+        endTraceOperation(config.debugLog, operation, {
+          figureId: source.figure.id,
+          skipped: true,
+          reason: "no-export-result",
+        });
+        return;
+      }
       const sourcesToCopy: string[] = [exported.svgPath];
       const targetsToCopy: string[] = [];
       const svgTarget = targetForExtension(source.figure.publishTargets, ".svg");

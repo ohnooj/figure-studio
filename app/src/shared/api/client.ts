@@ -3,8 +3,11 @@ function resolveApiRoot(): string {
   if (configured) {
     return configured.replace(/\/+$/, "");
   }
+  if (import.meta.env.DEV) {
+    return "http://127.0.0.1:8123";
+  }
   if (typeof window !== "undefined" && window.location.origin) {
-    return window.location.origin;
+    return window.location.origin.replace(/\/+$/, "");
   }
   return "http://127.0.0.1:8123";
 }

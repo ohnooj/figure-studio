@@ -9,7 +9,7 @@ export type PromptReferenceToken = {
   kind: "object" | "annotation" | "gallery";
   id: string;
   label: string;
-  objectKind?: EditableKind;
+  objectKind?: EditableKind | string;
 };
 
 export type PromptSegment =
@@ -91,7 +91,7 @@ function syntheticObjectSummary(token: PromptReferenceToken): CodexSelectedObjec
   return {
     id: token.id,
     label: token.label,
-    kind: token.objectKind,
+    kind: token.objectKind as EditableKind,
     x: 0,
     y: 0,
     width: 20,
