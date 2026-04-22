@@ -1,59 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
+  applyCodexVariant,
   cancelCodexRun,
   clearCodexThread,
   createCodexRun,
   createCodexThread,
   deleteCodexThread,
-  fetchCodexRun,
   fetchCodexThread,
   fetchCodexThreads,
-  applyCodexVariant,
-  mergeCodexRunEvents,
   markCodexVariant,
-  openCodexRunEventSource,
   rejectCodexVariant,
   updateCodexThread,
 } from "../../shared/api/codex";
-import type { CodexFigureContext, CodexReasoningEffort, CodexRunEvent, CodexRunVariant, CodexThread, FigureSource } from "../../shared/types/editor";
+import type { CodexFigureContext, CodexReasoningEffort, CodexRunVariant, FigureSource } from "../../shared/types/editor";
+import { DEFAULT_CODEX_MODEL, DEFAULT_REASONING_EFFORT, FIXED_CODEX_APPROVAL, FIXED_CODEX_SANDBOX, type SlashCommandId } from "./codexConfig";
 import { EMPTY_FIGURE_CONTEXT } from "./codexContext";
-import { estimateTokenCount, estimateWeeklyUsage, formatPercent, isRunProcessing } from "./codexFormatting";
+import { useCodexComposerState, extractInlineSlashCommands } from "./useCodexComposerState";
+import { useCodexThreads } from "./useCodexThreads";
 
-export const CODEX_MODEL_OPTIONS = [
-  "gpt-5.4",
-  "gpt-5.4-mini",
-  "gpt-5.3-codex-spark",
-] as const;
-const DEFAULT_CODEX_MODEL = "gpt-5.4";
-const DEFAULT_REASONING_EFFORT: CodexReasoningEffort = "medium";
-const FIXED_CODEX_SANDBOX = "workspace-write";
-const FIXED_CODEX_APPROVAL = "never";
-const MODEL_CONTEXT_TOKENS = 272_000;
-
-export const SLASH_COMMANDS = [
-  { id: "plan", command: "/plan", label: "Plan mode", description: "Toggle planning-first replies." },
-  { id: "compact", command: "/compact", label: "Compact session", description: "Compact the current chat session history." },
-  { id: "global", command: "/global", label: "Global workspace", description: "Switch to a chat staged with all figures in the workspace." },
-  { id: "clear", command: "/clear", label: "Clear chat", description: "Reset the current chat context and history." },
-  { id: "fig", command: "/fig", label: "Figure context", description: "Toggle figure context attachment." },
-] as const;
-
-export type SlashCommandId = (typeof SLASH_COMMANDS)[number]["id"];
-
-const INLINE_COMMAND_PATTERN = /(^|\s)(\/(plan|compact|global|clear|fig))(?=\s|$)/gi;
-
-function extractInlineSlashCommands(value: string): { commands: SlashCommandId[]; prompt: string } {
-  const commands: SlashCommandId[] = [];
-  const prompt = value
-    .replace(INLINE_COMMAND_PATTERN, (match, leadingWhitespace: string, _fullCommand: string, commandId: string) => {
-      commands.push(commandId as SlashCommandId);
-      return leadingWhitespace;
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-  return { commands, prompt };
-}
+export { CODEX_MODEL_OPTIONS } from "./codexConfig";
+export type { SlashCommandId } from "./codexConfig";
 
 export function useCodexWorkspace(config: {
   activeFigure: FigureSource | null;
@@ -61,207 +28,69 @@ export function useCodexWorkspace(config: {
   onStatus: (message: string, tone?: "success" | "error" | "info") => void;
 }) {
   const { activeFigure, figureContext, onStatus } = config;
-  const [threads, setThreads] = useState<CodexThread[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const threadState = useCodexThreads({ onStatus });
+  const composerState = useCodexComposerState({
+    figureContext,
+    threads: threadState.threads,
+  });
   const [isSending, setIsSending] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const [copiedMessageKey, setCopiedMessageKey] = useState("");
-  const [includeFigureContext, setIncludeFigureContext] = useState(true);
-  const [planMode, setPlanMode] = useState(false);
-  const [weeklyQuotaTokens, setWeeklyQuotaTokens] = useState(0);
-  const [resultsCount, setResultsCount] = useState(1);
-  const [preferredModel, setPreferredModel] = useState<string>(DEFAULT_CODEX_MODEL);
-  const [preferredReasoningEffort, setPreferredReasoningEffort] = useState<CodexReasoningEffort>(DEFAULT_REASONING_EFFORT);
-  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
-  const transcriptRef = useRef<HTMLDivElement | null>(null);
-  const shouldAutoScrollRef = useRef(true);
 
-  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? null;
-  const activeRun = activeThread?.runs[activeThread.runs.length - 1] ?? null;
-  const activeRunInProgress = Boolean(activeRun && isRunProcessing(activeRun));
-  const activeThreadIdForRun = activeThread?.id ?? "";
-  const activeRunId = activeRun?.id ?? "";
-  const activeModel = activeThread?.model || preferredModel;
-  const activeReasoningEffort = activeThread?.reasoningEffort || preferredReasoningEffort;
-  const currentFigureLabel = activeFigure?.figure.title ?? activeFigure?.figure.id ?? "No figure";
-  const markedVariantIds = activeRun?.reviewState !== "applied"
-    ? activeRun?.variants.filter((variant) => variant.markedForRevision).map((variant) => variant.id) ?? []
+  const markedVariantIds = threadState.activeRun?.reviewState !== "applied"
+    ? threadState.activeRun?.variants.filter((variant) => variant.markedForRevision).map((variant) => variant.id) ?? []
     : [];
-  const trimmedPrompt = prompt.trim();
-  const trailingCommandMatch = prompt.match(/(?:^|\s)\/([a-z]*)$/i);
-  const commandFragment = trailingCommandMatch?.[1]?.toLowerCase() ?? "";
-  const commandSuggestions = commandFragment
-    ? SLASH_COMMANDS.filter((entry) => entry.id.startsWith(commandFragment))
-    : prompt.endsWith("/")
-      ? [...SLASH_COMMANDS]
-      : [];
-  const attachedContextTokens = includeFigureContext && figureContext
-    ? estimateTokenCount(JSON.stringify(figureContext))
-    : 0;
-  const contextUsagePercent = formatPercent((attachedContextTokens / MODEL_CONTEXT_TOKENS) * 100);
-  const weeklyUsageTokens = estimateWeeklyUsage(threads);
-  const weeklyUsagePercent = weeklyQuotaTokens > 0 ? formatPercent((weeklyUsageTokens / weeklyQuotaTokens) * 100) : "Set";
-  const activeOptionChips = [
-    planMode ? "/plan" : "",
-    includeFigureContext ? "/fig" : "",
-  ].filter(Boolean);
-  const transcriptSignature = activeThread?.runs
-    .map((run) => `${run.id}:${run.updatedAt}:${run.events.length}:${run.state}:${run.reviewState}:${run.variants.map((variant) => `${variant.id}:${variant.state}:${variant.reviewState}:${variant.markedForRevision}:${variant.updatedAt}`).join(",")}`)
-    .join("|") ?? "";
+  const activeModel = threadState.activeThread?.model || composerState.preferredModel || DEFAULT_CODEX_MODEL;
+  const activeReasoningEffort = threadState.activeThread?.reasoningEffort || composerState.preferredReasoningEffort || DEFAULT_REASONING_EFFORT;
+  const currentFigureLabel = activeFigure?.figure.title ?? activeFigure?.figure.id ?? "No figure";
 
-  function updateAutoScrollState(): void {
-    const element = transcriptRef.current;
-    if (!(element instanceof HTMLElement)) {
-      shouldAutoScrollRef.current = true;
-      return;
-    }
-    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-    shouldAutoScrollRef.current = distanceFromBottom <= 24;
-  }
-
-  useEffect(() => {
-    const savedQuota = Number(window.localStorage.getItem("paper_figures.codexWeeklyQuotaTokens"));
-    if (Number.isFinite(savedQuota) && savedQuota > 0) {
-      setWeeklyQuotaTokens(Math.round(savedQuota));
-    }
-    const savedResultsCount = Number(window.localStorage.getItem("paper_figures.codexResultsCount"));
-    if (Number.isFinite(savedResultsCount) && savedResultsCount >= 1 && savedResultsCount <= 3) {
-      setResultsCount(Math.round(savedResultsCount));
-    }
-    const savedModel = window.localStorage.getItem("paper_figures.codexPreferredModel");
-    if (savedModel && CODEX_MODEL_OPTIONS.includes(savedModel as (typeof CODEX_MODEL_OPTIONS)[number])) {
-      setPreferredModel(savedModel);
-    }
-    const savedReasoningEffort = window.localStorage.getItem("paper_figures.codexPreferredReasoningEffort");
-    if (savedReasoningEffort === "low" || savedReasoningEffort === "medium" || savedReasoningEffort === "high" || savedReasoningEffort === "xhigh") {
-      setPreferredReasoningEffort(savedReasoningEffort);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const payload = await fetchCodexThreads();
-        if (cancelled) {
-          return;
-        }
-        setThreads(payload.threads);
-        const nextThread = payload.threads.find((thread) => thread.id === activeThreadId) ?? payload.threads[0] ?? null;
-        if (nextThread) {
-          setActiveThreadId(nextThread.id);
-        }
-      } catch (error) {
-        onStatus(error instanceof Error ? error.message : "Failed to load Codex chats.", "error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeThreadId, onStatus]);
-
-  useEffect(() => {
-    if (weeklyQuotaTokens > 0) {
-      window.localStorage.setItem("paper_figures.codexWeeklyQuotaTokens", String(Math.round(weeklyQuotaTokens)));
-      return;
-    }
-    window.localStorage.removeItem("paper_figures.codexWeeklyQuotaTokens");
-  }, [weeklyQuotaTokens]);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.codexResultsCount", String(resultsCount));
-  }, [resultsCount]);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.codexPreferredModel", preferredModel);
-  }, [preferredModel]);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.codexPreferredReasoningEffort", preferredReasoningEffort);
-  }, [preferredReasoningEffort]);
-
-  useEffect(() => {
-    if (!activeRunId || !activeThreadIdForRun || !activeRunInProgress) {
-      return;
-    }
-    const source = openCodexRunEventSource(activeRunId);
-    source.addEventListener("message", (event) => {
-      const payload = JSON.parse((event as MessageEvent<string>).data) as CodexRunEvent;
-      setThreads((current) =>
-        current.map((thread) =>
-          thread.id !== activeThreadIdForRun
-            ? thread
-            : {
-                ...thread,
-                runs: thread.runs.map((run) =>
-                  run.id === activeRunId ? { ...run, events: mergeCodexRunEvents(run.events, [payload]) } : run,
-                ),
-              },
-        ),
-      );
-      if (
-        payload.type === "codex.turn.diff.updated"
-        || payload.type === "codex.turn.completed"
-        || payload.type === "codex.error"
-        || payload.type === "run.applied"
-        || payload.type === "variant.rejected"
-        || payload.type === "variant.marked"
-      ) {
-        void fetchCodexRun(activeRunId)
-          .then((response) => {
-            setThreads((current) =>
-              current.map((thread) =>
-                thread.id !== activeThreadIdForRun
-                  ? thread
-                  : {
-                      ...thread,
-                      runs: thread.runs.map((run) => (run.id === response.run.id ? response.run : run)),
-                    },
-              ),
-            );
-          })
-          .catch(() => undefined);
-      }
-    });
-    return () => source.close();
-  }, [activeRunId, activeRunInProgress, activeThreadIdForRun]);
-
-  useEffect(() => {
-    const element = transcriptRef.current;
-    if (!(element instanceof HTMLElement)) {
-      return;
-    }
-    element.scrollTop = element.scrollHeight;
-    shouldAutoScrollRef.current = true;
-  }, [activeThreadId]);
-
-  useEffect(() => {
-    const element = transcriptRef.current;
-    if (!(element instanceof HTMLElement) || !shouldAutoScrollRef.current) {
-      return;
-    }
-    element.scrollTop = element.scrollHeight;
-  }, [transcriptSignature]);
-
-  useEffect(() => {
-    setSelectedCommandIndex((current) => {
-      if (!commandSuggestions.length) {
-        return 0;
-      }
-      return Math.min(current, commandSuggestions.length - 1);
-    });
-  }, [commandSuggestions]);
-
-  async function selectThread(threadId: string): Promise<void> {
-    try {
-      const payload = await fetchCodexThread(threadId);
-      setThreads((current) => current.map((thread) => (thread.id === payload.thread.id ? payload.thread : thread)));
-      setActiveThreadId(threadId);
-    } catch (error) {
-      onStatus(error instanceof Error ? error.message : "Failed to open Codex chat.", "error");
-    }
-  }
+  const workspaceState = useMemo(() => ({
+    threads: threadState.threads,
+    activeThreadId: threadState.activeThreadId,
+    activeThread: threadState.activeThread,
+    activeRun: threadState.activeRun,
+    activeRunInProgress: threadState.activeRunInProgress,
+    prompt: composerState.prompt,
+    isSending,
+    optionsOpen: composerState.optionsOpen,
+    copiedMessageKey: composerState.copiedMessageKey,
+    selectedCommandIndex: composerState.selectedCommandIndex,
+    commandSuggestions: composerState.commandSuggestions,
+    contextUsagePercent: composerState.contextUsagePercent,
+    weeklyUsageTokens: composerState.weeklyUsageTokens,
+    weeklyQuotaTokens: composerState.weeklyQuotaTokens,
+    weeklyUsagePercent: composerState.weeklyUsagePercent,
+    activeOptionChips: composerState.activeOptionChips,
+    transcriptRef: threadState.transcriptRef,
+    includeFigureContext: composerState.includeFigureContext,
+    currentFigureLabel,
+    planMode: composerState.planMode,
+    resultsCount: composerState.resultsCount,
+    activeModel,
+    activeReasoningEffort,
+  }), [
+    activeModel,
+    activeReasoningEffort,
+    composerState.activeOptionChips,
+    composerState.commandSuggestions,
+    composerState.contextUsagePercent,
+    composerState.copiedMessageKey,
+    composerState.includeFigureContext,
+    composerState.optionsOpen,
+    composerState.planMode,
+    composerState.prompt,
+    composerState.resultsCount,
+    composerState.selectedCommandIndex,
+    composerState.weeklyQuotaTokens,
+    composerState.weeklyUsagePercent,
+    composerState.weeklyUsageTokens,
+    currentFigureLabel,
+    isSending,
+    threadState.activeRun,
+    threadState.activeRunInProgress,
+    threadState.activeThread,
+    threadState.activeThreadId,
+    threadState.threads,
+    threadState.transcriptRef,
+  ]);
 
   async function handleNewChat(): Promise<boolean> {
     if (!activeFigure) {
@@ -272,14 +101,14 @@ export function useCodexWorkspace(config: {
       const payload = await createCodexThread({
         figureId: activeFigure.figure.id,
         scope: "figure",
-        title: `${activeFigure.figure.title} session ${threads.length + 1}`,
-        model: preferredModel,
-        reasoningEffort: preferredReasoningEffort,
+        title: `${activeFigure.figure.title} session ${threadState.threads.length + 1}`,
+        model: composerState.preferredModel,
+        reasoningEffort: composerState.preferredReasoningEffort,
         sandboxMode: FIXED_CODEX_SANDBOX,
         approvalPolicy: FIXED_CODEX_APPROVAL,
       });
-      setThreads((current) => [payload.thread, ...current]);
-      setActiveThreadId(payload.thread.id);
+      threadState.setThreads((current) => [payload.thread, ...current]);
+      threadState.setActiveThreadId(payload.thread.id);
       return true;
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to create Codex chat.", "error");
@@ -288,11 +117,11 @@ export function useCodexWorkspace(config: {
   }
 
   async function handleGlobalChat(): Promise<void> {
-    const existing = threads.find((thread) => thread.scope === "global") ?? null;
+    const existing = threadState.threads.find((thread) => thread.scope === "global") ?? null;
     if (existing) {
-      await selectThread(existing.id);
+      await threadState.selectThread(existing.id);
       onStatus(`Switched to global workspace chat "${existing.title}".`, "info");
-      setPrompt("");
+      composerState.clearPrompt();
       return;
     }
     if (!activeFigure) {
@@ -303,34 +132,30 @@ export function useCodexWorkspace(config: {
       const payload = await createCodexThread({
         figureId: activeFigure.figure.id,
         scope: "global",
-        title: `Global workspace session ${threads.filter((thread) => thread.scope === "global").length + 1}`,
-        model: preferredModel,
-        reasoningEffort: preferredReasoningEffort,
+        title: `Global workspace session ${threadState.threads.filter((thread) => thread.scope === "global").length + 1}`,
+        model: composerState.preferredModel,
+        reasoningEffort: composerState.preferredReasoningEffort,
         sandboxMode: FIXED_CODEX_SANDBOX,
         approvalPolicy: FIXED_CODEX_APPROVAL,
       });
-      setThreads((current) => [payload.thread, ...current]);
-      setActiveThreadId(payload.thread.id);
-      setPrompt("");
+      threadState.setThreads((current) => [payload.thread, ...current]);
+      threadState.setActiveThreadId(payload.thread.id);
+      composerState.clearPrompt();
       onStatus("Created a global workspace chat staged with all figures.", "success");
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to create a global Codex chat.", "error");
     }
   }
 
-  function cycleResultsCount(): void {
-    setResultsCount((current) => (current >= 3 ? 1 : current + 1));
-  }
-
   async function handleClearThread(): Promise<void> {
-    if (!activeThread) {
+    if (!threadState.activeThread) {
       onStatus("Select a Codex chat before clearing it.", "info");
       return;
     }
     try {
-      const payload = await clearCodexThread(activeThread.id);
-      setThreads((current) => current.map((thread) => (thread.id === payload.thread.id ? payload.thread : thread)));
-      setPrompt("");
+      const payload = await clearCodexThread(threadState.activeThread.id);
+      threadState.replaceThread(payload.thread);
+      composerState.clearPrompt();
       onStatus("Cleared the current Codex chat.", "success");
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to clear the current chat.", "error");
@@ -338,19 +163,19 @@ export function useCodexWorkspace(config: {
   }
 
   async function handleDeleteThread(): Promise<void> {
-    if (!activeThread) {
+    if (!threadState.activeThread) {
       onStatus("Select a Codex chat before deleting it.", "info");
       return;
     }
-    if (!window.confirm(`Delete chat "${activeThread.title}"?`)) {
+    if (!window.confirm(`Delete chat "${threadState.activeThread.title}"?`)) {
       return;
     }
     try {
-      await deleteCodexThread(activeThread.id);
-      const remaining = threads.filter((thread) => thread.id !== activeThread.id);
-      setThreads(remaining);
-      setActiveThreadId(remaining[0]?.id ?? "");
-      setPrompt("");
+      await deleteCodexThread(threadState.activeThread.id);
+      const remaining = threadState.threads.filter((thread) => thread.id !== threadState.activeThread?.id);
+      threadState.setThreads(remaining);
+      threadState.setActiveThreadId(remaining[0]?.id ?? "");
+      composerState.clearPrompt();
       onStatus("Deleted the selected Codex chat.", "success");
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to delete the selected chat.", "error");
@@ -361,7 +186,7 @@ export function useCodexWorkspace(config: {
     const clearPrompt = options?.clearPrompt ?? true;
     if (commandId === "clear") {
       if (clearPrompt) {
-        setPrompt("");
+        composerState.clearPrompt();
       }
       await handleClearThread();
       return;
@@ -371,31 +196,31 @@ export function useCodexWorkspace(config: {
       return;
     }
     if (commandId === "plan") {
-      setPlanMode((current) => {
+      composerState.setPlanMode((current) => {
         const next = !current;
         onStatus(next ? "Plan mode enabled." : "Plan mode disabled.", "info");
         return next;
       });
       if (clearPrompt) {
-        setPrompt("");
+        composerState.clearPrompt();
       }
       return;
     }
     if (commandId === "compact") {
       if (clearPrompt) {
-        setPrompt("");
+        composerState.clearPrompt();
       }
       await handleClearThread();
       onStatus("Compacted the current Codex chat session.", "success");
       return;
     }
-    setIncludeFigureContext((current) => {
+    composerState.setIncludeFigureContext((current) => {
       const next = !current;
       onStatus(next ? "Figure context will be attached." : "Figure context attachment is off.", "info");
       return next;
     });
     if (clearPrompt) {
-      setPrompt("");
+      composerState.clearPrompt();
     }
   }
 
@@ -404,75 +229,65 @@ export function useCodexWorkspace(config: {
       await executeLocalCommand(commandId, { clearPrompt: false });
     }
     if (clearPrompt) {
-      setPrompt("");
+      composerState.clearPrompt();
     }
-  }
-
-  function clearActiveOptionChip(chip: string): void {
-    if (chip === "/plan") {
-      setPlanMode(false);
-      onStatus("Plan mode disabled.", "info");
-      return;
-    }
-    setIncludeFigureContext(false);
-    onStatus("Figure context attachment is off.", "info");
   }
 
   async function handleSend(): Promise<void> {
-    const { commands: inlineCommands, prompt: strippedPrompt } = extractInlineSlashCommands(prompt);
+    const { commands: inlineCommands, prompt: strippedPrompt } = extractInlineSlashCommands(composerState.prompt);
     const hasOnlyCommands = inlineCommands.length > 0 && !strippedPrompt;
-    if ((!trimmedPrompt && !inlineCommands.length) || activeRunInProgress) {
+    if ((!composerState.trimmedPrompt && !inlineCommands.length) || threadState.activeRunInProgress) {
       return;
     }
     if (hasOnlyCommands) {
       await applyInlineCommands(inlineCommands, true);
       return;
     }
-    let thread = activeThread;
+    let thread = threadState.activeThread;
     setIsSending(true);
     try {
       await applyInlineCommands(inlineCommands);
       if (inlineCommands.includes("global")) {
         const payload = await fetchCodexThreads();
-        setThreads(payload.threads);
+        threadState.setThreads(payload.threads);
         thread = payload.threads.find((entry) => entry.scope === "global") ?? payload.threads[0] ?? null;
         if (thread) {
-          setActiveThreadId(thread.id);
+          threadState.setActiveThreadId(thread.id);
         }
       }
       if (!thread) {
         await handleNewChat();
         const payload = await fetchCodexThreads();
         thread = payload.threads[0] ?? null;
-        setThreads(payload.threads);
+        threadState.setThreads(payload.threads);
         if (thread) {
-          setActiveThreadId(thread.id);
+          threadState.setActiveThreadId(thread.id);
         }
       }
       if (!thread) {
         throw new Error("No Codex chat is available.");
       }
       const promptPrefix: string[] = [];
-      if (planMode) {
+      if (composerState.planMode) {
         promptPrefix.push("Respond in planning mode. Start with a concise step-by-step plan before details.");
       }
-      const effectivePrompt = strippedPrompt || trimmedPrompt;
+      const effectivePrompt = strippedPrompt || composerState.trimmedPrompt;
       const runPrompt = promptPrefix.length ? `${promptPrefix.join("\n")}\n\n${effectivePrompt}` : effectivePrompt;
       await createCodexRun(thread.id, {
         activeFigureId: activeFigure?.figure.id ?? "",
-        resultsCount,
+        resultsCount: composerState.resultsCount,
         revisionVariantIds: markedVariantIds,
         prompt: runPrompt,
-        figureContext: includeFigureContext ? (figureContext ?? EMPTY_FIGURE_CONTEXT) : EMPTY_FIGURE_CONTEXT,
+        figureContext: composerState.includeFigureContext ? (figureContext ?? EMPTY_FIGURE_CONTEXT) : EMPTY_FIGURE_CONTEXT,
       });
       const refreshed = await fetchCodexThread(thread.id);
-      setThreads((current) => current.map((entry) => (entry.id === refreshed.thread.id ? refreshed.thread : entry)));
-      setPrompt("");
+      threadState.replaceThread(refreshed.thread);
+      composerState.clearPrompt();
     } catch (error) {
       if (error instanceof Error && error.message.includes("already has an active run") && thread) {
         const refreshed = await fetchCodexThread(thread.id).catch(() => null);
         if (refreshed) {
-          setThreads((current) => current.map((entry) => (entry.id === refreshed.thread.id ? refreshed.thread : entry)));
+          threadState.replaceThread(refreshed.thread);
           onStatus("This chat already has an active Codex run. Stop it or wait for it to finish.", "info");
           return;
         }
@@ -484,65 +299,52 @@ export function useCodexWorkspace(config: {
   }
 
   async function handleCancelRun(): Promise<void> {
-    if (!activeRun || !activeThread) {
+    if (!threadState.activeRun || !threadState.activeThread) {
       return;
     }
-    const payload = await cancelCodexRun(activeRun.id);
-    setThreads((current) =>
-      current.map((thread) =>
-        thread.id !== activeThread.id ? thread : { ...thread, runs: thread.runs.map((run) => (run.id === payload.run.id ? payload.run : run)) },
-      ),
-    );
+    const payload = await cancelCodexRun(threadState.activeRun.id);
+    threadState.replaceRun(payload.run);
   }
 
   async function handleApplyVariant(variant: CodexRunVariant): Promise<void> {
-    if (!activeRun || !activeThread) {
+    if (!threadState.activeRun || !threadState.activeThread) {
       return;
     }
     const payload = await applyCodexVariant(variant.id);
-    setThreads((current) =>
-      current.map((thread) =>
-        thread.id !== activeThread.id ? thread : { ...thread, runs: thread.runs.map((run) => (run.id === payload.run.id ? payload.run : run)) },
-      ),
-    );
+    threadState.dispatchRunRefresh(payload.run);
+    threadState.replaceRun(payload.run);
     onStatus(`Applied ${variant.label}.`, "success");
   }
 
   async function handleRejectVariant(variant: CodexRunVariant): Promise<void> {
-    if (!activeRun || !activeThread) {
+    if (!threadState.activeRun || !threadState.activeThread) {
       return;
     }
     const payload = await rejectCodexVariant(variant.id);
-    setThreads((current) =>
-      current.map((thread) =>
-        thread.id !== activeThread.id ? thread : { ...thread, runs: thread.runs.map((run) => (run.id === payload.run.id ? payload.run : run)) },
-      ),
-    );
+    threadState.dispatchRunRefresh(payload.run);
+    threadState.replaceRun(payload.run);
     onStatus(`Rejected ${variant.label}.`, "info");
   }
 
   async function handleToggleVariantMark(variant: CodexRunVariant): Promise<void> {
-    if (!activeRun || !activeThread || activeRun.reviewState === "applied") {
+    if (!threadState.activeRun || !threadState.activeThread || threadState.activeRun.reviewState === "applied") {
       return;
     }
     const payload = await markCodexVariant(variant.id, !variant.markedForRevision);
-    setThreads((current) =>
-      current.map((thread) =>
-        thread.id !== activeThread.id ? thread : { ...thread, runs: thread.runs.map((run) => (run.id === payload.run.id ? payload.run : run)) },
-      ),
-    );
+    threadState.dispatchRunRefresh(payload.run);
+    threadState.replaceRun(payload.run);
     onStatus(`${variant.markedForRevision ? "Unmarked" : "Marked"} ${variant.label} for the next revision round.`, "info");
   }
 
   async function handleModelChange(nextModel: string): Promise<void> {
-    setPreferredModel(nextModel);
-    if (!activeThread) {
+    composerState.setPreferredModel(nextModel);
+    if (!threadState.activeThread) {
       onStatus(`Default model set to ${nextModel}.`, "info");
       return;
     }
     try {
-      const payload = await updateCodexThread(activeThread.id, { model: nextModel });
-      setThreads((current) => current.map((thread) => (thread.id === payload.thread.id ? payload.thread : thread)));
+      const payload = await updateCodexThread(threadState.activeThread.id, { model: nextModel });
+      threadState.replaceThread(payload.thread);
       onStatus(`Model set to ${nextModel} for this chat.`, "success");
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to update Codex model.", "error");
@@ -550,14 +352,14 @@ export function useCodexWorkspace(config: {
   }
 
   async function handleReasoningEffortChange(nextEffort: CodexReasoningEffort): Promise<void> {
-    setPreferredReasoningEffort(nextEffort);
-    if (!activeThread) {
+    composerState.setPreferredReasoningEffort(nextEffort);
+    if (!threadState.activeThread) {
       onStatus(`Default effort set to ${nextEffort}.`, "info");
       return;
     }
     try {
-      const payload = await updateCodexThread(activeThread.id, { reasoningEffort: nextEffort });
-      setThreads((current) => current.map((thread) => (thread.id === payload.thread.id ? payload.thread : thread)));
+      const payload = await updateCodexThread(threadState.activeThread.id, { reasoningEffort: nextEffort });
+      threadState.replaceThread(payload.thread);
       onStatus(`Effort set to ${nextEffort} for this chat.`, "success");
     } catch (error) {
       onStatus(error instanceof Error ? error.message : "Failed to update Codex effort.", "error");
@@ -565,29 +367,13 @@ export function useCodexWorkspace(config: {
   }
 
   return {
-    threads,
-    activeThreadId,
-    activeThread,
-    activeRun,
-    activeRunInProgress,
-    prompt,
-    setPrompt,
-    isSending,
-    optionsOpen,
-    setOptionsOpen,
-    copiedMessageKey,
-    setCopiedMessageKey,
-    selectedCommandIndex,
-    setSelectedCommandIndex,
-    commandSuggestions,
-    contextUsagePercent,
-    weeklyUsageTokens,
-    weeklyQuotaTokens,
-    weeklyUsagePercent,
-    activeOptionChips,
-    transcriptRef,
-    updateAutoScrollState,
-    selectThread,
+    ...workspaceState,
+    setPrompt: composerState.setPrompt,
+    setOptionsOpen: composerState.setOptionsOpen,
+    setCopiedMessageKey: composerState.setCopiedMessageKey,
+    setSelectedCommandIndex: composerState.setSelectedCommandIndex,
+    updateAutoScrollState: threadState.updateAutoScrollState,
+    selectThread: threadState.selectThread,
     handleNewChat,
     handleClearThread,
     handleDeleteThread,
@@ -597,15 +383,9 @@ export function useCodexWorkspace(config: {
     handleRejectVariant,
     handleToggleVariantMark,
     executeLocalCommand,
-    clearActiveOptionChip,
-    includeFigureContext,
-    currentFigureLabel,
-    planMode,
-    resultsCount,
-    cycleResultsCount,
-    setWeeklyQuotaTokens,
-    activeModel,
-    activeReasoningEffort,
+    clearActiveOptionChip: (chip: string) => composerState.clearActiveOptionChip(chip, onStatus),
+    cycleResultsCount: composerState.cycleResultsCount,
+    setWeeklyQuotaTokens: composerState.setWeeklyQuotaTokens,
     handleModelChange,
     handleReasoningEffortChange,
   };

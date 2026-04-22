@@ -139,6 +139,60 @@
   min-width: 0;
 }
 
+.codex-message-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+
+.codex-message-drag-strip {
+  display: flex;
+  justify-content: center;
+  margin: -0.2rem 0 0.42rem;
+}
+
+.codex-message-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  min-height: 0.7rem;
+  padding: 0.14rem 0;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  transition: transform 120ms ease, opacity 120ms ease;
+  opacity: 0.8;
+}
+
+.codex-message-drag-handle:hover:not(:disabled),
+.codex-message-drag-handle:focus-visible {
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.codex-message-drag-handle:active:not(:disabled) {
+  cursor: grabbing;
+}
+
+.codex-message-drag-handle:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.codex-message-drag-glyph {
+  display: block;
+  width: 2.2rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 58%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--panel-border) 52%, transparent),
+    0 0 0.8rem color-mix(in srgb, var(--button-hover-bg) 12%, transparent);
+}
+
 .codex-message-role {
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -545,6 +599,7 @@
 }
 
 .codex-composer-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.42rem;
@@ -555,6 +610,68 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--panel-bg) 95%, white 5%), color-mix(in srgb, var(--panel-bg) 100%, black 0%));
   box-shadow: 0 14px 30px rgba(48, 36, 24, 0.05);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.codex-composer-shell::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 18%,
+      color-mix(in srgb, white 72%, var(--button-hover-bg) 28%) 42%,
+      transparent 66%
+    );
+  mix-blend-mode: screen;
+  transition: opacity 160ms ease;
+}
+
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="ready"]),
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="over"]) {
+  border-color: color-mix(in srgb, var(--button-hover-border) 54%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--button-hover-border) 26%, transparent),
+    0 0 0.28rem color-mix(in srgb, white 20%, transparent),
+    0 0 1.4rem color-mix(in srgb, var(--button-hover-bg) 24%, transparent),
+    0 14px 30px rgba(48, 36, 24, 0.05);
+}
+
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="over"]) {
+  border-color: color-mix(in srgb, var(--button-hover-border) 82%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--button-hover-border) 46%, transparent),
+    0 0 0.4rem color-mix(in srgb, white 26%, transparent),
+    0 0 1.9rem color-mix(in srgb, var(--button-hover-bg) 36%, transparent),
+    0 0 2.8rem color-mix(in srgb, var(--button-hover-bg) 18%, transparent),
+    0 14px 30px rgba(48, 36, 24, 0.05);
+}
+
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="ready"])::after,
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="over"])::after {
+  opacity: 0.72;
+}
+
+.codex-composer-shell:has(.codex-prompt-editor[data-drop-state="over"])::after {
+  animation: codex-drop-shell-shine 1.4s ease-in-out infinite;
+}
+
+@keyframes codex-drop-shell-shine {
+  0% {
+    transform: translateX(-24%) skewX(-12deg);
+    opacity: 0.18;
+  }
+  45% {
+    opacity: 0.78;
+  }
+  100% {
+    transform: translateX(24%) skewX(-12deg);
+    opacity: 0.12;
+  }
 }
 
 .codex-reference-inline {
@@ -617,6 +734,7 @@
   color: var(--text-main);
   cursor: grab;
   overflow: hidden;
+  transition: box-shadow 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
 }
 
 .codex-reference-chip:active,
@@ -624,14 +742,21 @@
   cursor: grabbing;
 }
 
-.codex-reference-chip.active {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--button-active-bg) 38%, transparent);
+.codex-reference-chip.active,
+.codex-prompt-token.active {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--button-active-bg) 50%, transparent),
+    0 0 0.72rem color-mix(in srgb, var(--button-active-bg) 28%, transparent);
 }
 
 .codex-reference-chip.linked:not(.active),
-.codex-reference-chip.hovered:not(.active) {
+.codex-reference-chip.hovered:not(.active),
+.codex-prompt-token.linked:not(.active),
+.codex-prompt-token.hovered:not(.active) {
   background: color-mix(in srgb, var(--button-active-bg) 18%, var(--panel-bg) 82%);
   border-color: color-mix(in srgb, var(--button-active-bg) 42%, transparent);
+  box-shadow: 0 0 0.94rem color-mix(in srgb, var(--button-active-bg) 28%, transparent);
+  transform: translateY(-1px);
 }
 
 .codex-reference-chip-annotation,
@@ -997,13 +1122,16 @@
 }
 
 .annotation-chip.active {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--button-active-bg) 38%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--button-active-bg) 50%, transparent),
+    0 0 0.72rem color-mix(in srgb, var(--button-active-bg) 30%, transparent);
 }
 
 .annotation-chip.hovered:not(.active),
 .annotation-chip.linked:not(.active) {
   background: color-mix(in srgb, var(--button-active-bg) 22%, var(--panel-bg) 78%);
   border-color: color-mix(in srgb, var(--button-active-bg) 48%, transparent);
+  box-shadow: 0 0 0.86rem color-mix(in srgb, var(--button-active-bg) 26%, transparent);
 }
 
 .annotation-delete {

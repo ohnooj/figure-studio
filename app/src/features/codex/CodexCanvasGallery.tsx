@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buildObjectTree } from "../../shared/lib/svg/tree";
 import type { CodexAnnotation, CodexAnnotationTool, CodexRun, CodexRunVariant, ObjectNode } from "../../shared/types/editor";
-import { CODEX_PROMPT_REFERENCE_MIME, serializePromptReferenceToken, type PromptReferenceToken } from "./promptTokens";
+import { CODEX_PROMPT_REFERENCE_MIME, referenceChipId, serializePromptReferenceToken, type PromptReferenceToken } from "./promptTokens";
 
 const GALLERY_STORAGE_KEY = "paper_figures.codexGalleryWorkspace.v1";
 const GALLERY_CARD_WIDTH = 360;
@@ -52,13 +52,14 @@ export function galleryCardsForRun(run: CodexRun): GalleryCard[] {
     });
   }
   run.variants.forEach((variant) => {
-    if (!variant.latestPreviewSvg?.includes("<svg")) {
+    const variantSvg = variant.interactivePreviewSvg ?? variant.latestPreviewSvg;
+    if (!variantSvg?.includes("<svg")) {
       return;
     }
     cards.push({
       id: variant.id,
       label: variant.label,
-      svg: variant.latestPreviewSvg,
+      svg: variantSvg,
       variant,
       reviewState: variant.reviewState,
       statusLabel: variant.reviewState === "pending" ? (variant.currentStatus || variant.state) : variant.reviewState,
@@ -147,7 +148,7 @@ function cloneAnnotationsByCard(annotationsByCard: Record<string, CodexAnnotatio
 }
 
 function dispatchGalleryAction(detail: {
-  action: "apply" | "reject" | "mark";
+  action: "apply" | "reject" | "mark" | "tune";
   runId: string;
   variantId?: string;
 }): void {
@@ -534,6 +535,7 @@ export function CodexCanvasGallery(props: {
                     <button
                       type="button"
                       className="codex-meta-chip codex-gallery-ref-chip"
+                      data-reference-chip-id={referenceChipId(token)}
                       draggable
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "copy";
@@ -605,6 +607,11 @@ export function CodexCanvasGallery(props: {
                         <button onClick={() => dispatchGalleryAction({ action: "mark", runId: props.run.id, variantId: card.variant?.id })}>
                           {card.variant.markedForRevision ? "Marked" : "Mark"}
                         </button>
+                        {card.variant.controlManifest ? (
+                          <button onClick={() => dispatchGalleryAction({ action: "tune", runId: props.run.id, variantId: card.variant?.id })}>
+                            Tune
+                          </button>
+                        ) : null}
                         <button onClick={() => dispatchGalleryAction({ action: "reject", runId: props.run.id, variantId: card.variant?.id })}>Reject</button>
                         <button onClick={() => dispatchGalleryAction({ action: "apply", runId: props.run.id, variantId: card.variant?.id })} disabled={card.variant.state !== "completed"}>
                           Apply

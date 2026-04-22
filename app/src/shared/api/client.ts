@@ -1,9 +1,15 @@
+type ImportMetaEnvShape = {
+  DEV?: boolean;
+  VITE_API_ROOT?: string;
+};
+
 function resolveApiRoot(): string {
-  const configured = (import.meta.env.VITE_API_ROOT ?? "").trim();
+  const env = import.meta.env as ImportMetaEnvShape;
+  const configured = (env.VITE_API_ROOT ?? "").trim();
   if (configured) {
     return configured.replace(/\/+$/, "");
   }
-  if (import.meta.env.DEV) {
+  if (env.DEV) {
     return "http://127.0.0.1:8123";
   }
   if (typeof window !== "undefined" && window.location.origin) {
@@ -17,8 +23,10 @@ const API_ROOT = resolveApiRoot();
 export { API_ROOT };
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
   const response = await fetch(`${API_ROOT}${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers,
     ...init,
   });
   const text = await response.text();

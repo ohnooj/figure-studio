@@ -219,6 +219,18 @@ export type CodexRunEvent = {
 
 export type CodexVariantReviewState = "pending" | "applied" | "rejected";
 
+export type CodexControlManifest = {
+  id: string;
+  title: string;
+  intentSummary: string;
+  userGoal: string;
+  changeTheme: string;
+  controlSummary: string;
+  runtimeEntry: string;
+  initialState: Record<string, unknown>;
+  changedElementHints?: string[];
+};
+
 export type CodexRunVariant = {
   id: string;
   runId: string;
@@ -228,6 +240,13 @@ export type CodexRunVariant = {
   currentStatus: string | null;
   latestDiff: string | null;
   latestPreviewSvg: string | null;
+  controlManifest: CodexControlManifest | null;
+  controlRuntimePath: string | null;
+  controlHostUrl: string | null;
+  controlRuntimeUrl: string | null;
+  interactiveState: Record<string, unknown>;
+  interactivePreviewSvg: string | null;
+  controlStatus: string | null;
   reviewState: CodexVariantReviewState;
   markedForRevision: boolean;
   createdAt: number;

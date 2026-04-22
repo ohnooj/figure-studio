@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any
-import shutil
 
 from .services.files import ROOT
-
 
 CODEX_ROOT = ROOT / ".codex_chat"
 DB_PATH = CODEX_ROOT / "chat.sqlite3"
@@ -111,6 +110,11 @@ class CodexStore:
                     current_status TEXT,
                     latest_diff TEXT,
                     latest_preview_svg TEXT,
+                    control_manifest_json TEXT,
+                    control_runtime_path TEXT,
+                    interactive_state_json TEXT,
+                    interactive_preview_svg TEXT,
+                    control_status TEXT,
                     review_state TEXT NOT NULL DEFAULT 'pending',
                     marked_for_revision INTEGER NOT NULL DEFAULT 0,
                     created_at REAL NOT NULL,
@@ -130,6 +134,11 @@ class CodexStore:
             self._ensure_column(connection, "codex_runs", "results_count", "INTEGER NOT NULL DEFAULT 1")
             self._ensure_column(connection, "codex_runs", "review_state", "TEXT NOT NULL DEFAULT 'pending'")
             self._ensure_column(connection, "codex_runs", "applied_variant_id", "TEXT")
+            self._ensure_column(connection, "codex_run_variants", "control_manifest_json", "TEXT")
+            self._ensure_column(connection, "codex_run_variants", "control_runtime_path", "TEXT")
+            self._ensure_column(connection, "codex_run_variants", "interactive_state_json", "TEXT")
+            self._ensure_column(connection, "codex_run_variants", "interactive_preview_svg", "TEXT")
+            self._ensure_column(connection, "codex_run_variants", "control_status", "TEXT")
 
     @staticmethod
     def _ensure_column(connection: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
@@ -221,11 +230,12 @@ class CodexStore:
                 """,
                 (thread_id,),
             ).fetchall()
-        thread["runs"] = []
+        runs_payload: list[dict[str, Any]] = []
         for run in runs:
             payload = self._run_row_to_dict(run)
             payload["events"] = self.list_run_events(payload["id"])
-            thread["runs"].append(payload)
+            runs_payload.append(payload)
+        thread["runs"] = runs_payload
         return thread
 
     def update_thread(self, thread_id: str, **fields: Any) -> dict[str, Any]:
@@ -233,7 +243,7 @@ class CodexStore:
             return self.get_thread(thread_id)
         fields["updated_at"] = now_ts()
         columns = ", ".join(f"{name} = ?" for name in fields)
-        params = list(fields.values()) + [thread_id]
+        params = [*list(fields.values()), thread_id]
         with self._lock, self._connect() as connection:
             connection.execute(f"UPDATE codex_threads SET {columns} WHERE id = ?", params)
         return self.get_thread(thread_id)
@@ -354,7 +364,8 @@ class CodexStore:
             rows = connection.execute(
                 """
                 SELECT id, run_id, variant_index, label, native_thread_id, native_turn_id, staging_dir,
-                       state, current_status, latest_diff, latest_preview_svg, review_state, marked_for_revision,
+                       state, current_status, latest_diff, latest_preview_svg, control_manifest_json, control_runtime_path,
+                       interactive_state_json, interactive_preview_svg, control_status, review_state, marked_for_revision,
                        created_at, updated_at, completed_at
                 FROM codex_run_variants
                 WHERE run_id = ?
@@ -369,7 +380,8 @@ class CodexStore:
             row = connection.execute(
                 """
                 SELECT id, run_id, variant_index, label, native_thread_id, native_turn_id, staging_dir,
-                       state, current_status, latest_diff, latest_preview_svg, review_state, marked_for_revision,
+                       state, current_status, latest_diff, latest_preview_svg, control_manifest_json, control_runtime_path,
+                       interactive_state_json, interactive_preview_svg, control_status, review_state, marked_for_revision,
                        created_at, updated_at, completed_at
                 FROM codex_run_variants
                 WHERE id = ?
@@ -387,7 +399,7 @@ class CodexStore:
         if fields.get("state") in {"completed", "failed", "cancelled"}:
             fields.setdefault("completed_at", now_ts())
         columns = ", ".join(f"{name} = ?" for name in fields)
-        params = list(fields.values()) + [variant_id]
+        params = [*list(fields.values()), variant_id]
         with self._lock, self._connect() as connection:
             connection.execute(f"UPDATE codex_run_variants SET {columns} WHERE id = ?", params)
             run_id = connection.execute(
@@ -464,7 +476,7 @@ class CodexStore:
         if fields.get("state") in {"completed", "failed", "cancelled"}:
             fields.setdefault("completed_at", now_ts())
         columns = ", ".join(f"{name} = ?" for name in fields)
-        params = list(fields.values()) + [run_id]
+        params = [*list(fields.values()), run_id]
         with self._lock, self._connect() as connection:
             connection.execute(f"UPDATE codex_runs SET {columns} WHERE id = ?", params)
             thread_id = connection.execute(
@@ -550,6 +562,11 @@ class CodexStore:
             "currentStatus": None if row["current_status"] is None else str(row["current_status"]),
             "latestDiff": None if row["latest_diff"] is None else str(row["latest_diff"]),
             "latestPreviewSvg": None if row["latest_preview_svg"] is None else str(row["latest_preview_svg"]),
+            "controlManifest": json.loads(str(row["control_manifest_json"])) if row["control_manifest_json"] else None,
+            "controlRuntimePath": None if row["control_runtime_path"] is None else str(row["control_runtime_path"]),
+            "interactiveState": json.loads(str(row["interactive_state_json"])) if row["interactive_state_json"] else {},
+            "interactivePreviewSvg": None if row["interactive_preview_svg"] is None else str(row["interactive_preview_svg"]),
+            "controlStatus": None if row["control_status"] is None else str(row["control_status"]),
             "reviewState": str(row["review_state"] or "pending"),
             "markedForRevision": bool(row["marked_for_revision"]),
             "createdAt": float(row["created_at"]),

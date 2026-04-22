@@ -1,154 +1,25 @@
 from __future__ import annotations
 
-import base64
 import json
 import queue
-import re
-import shutil
-import subprocess
 import threading
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException
 
+from .codex_app_client import CodexAppServerClient
+from .codex_controls import normalize_control_runtime_path, read_control_bundle, sanitize_svg
+from .codex_prompts import compose_variant_prompt, figure_target_summary
+from .codex_staging import (
+    build_staging_dir,
+    read_staging_svg,
+    stage_annotated_image,
+    sync_global_staging_dir,
+    sync_single_figure_variant,
+    write_variant_preview_svg,
+)
 from .codex_store import CodexStore
-from .services.files import FIGURES_ROOT, ROOT, WORKSPACE_PATH, resolve_from_root
-from .services.workspace import figure_entry, figure_entry_svg, figure_files, workspace_figures
-
-
-EventCallback = Callable[[dict[str, Any]], None]
-
-
-class CodexAppServerClient:
-    def __init__(self) -> None:
-        self._process: subprocess.Popen[str] | None = None
-        self._stdout_thread: threading.Thread | None = None
-        self._stderr_thread: threading.Thread | None = None
-        self._lock = threading.Lock()
-        self._request_id = 0
-        self._pending: dict[int, queue.Queue[dict[str, Any]]] = {}
-        self._callbacks: list[EventCallback] = []
-        self._initialized = False
-
-    def add_callback(self, callback: EventCallback) -> None:
-        self._callbacks.append(callback)
-
-    def _emit(self, message: dict[str, Any]) -> None:
-        for callback in list(self._callbacks):
-            callback(message)
-
-    def ensure_started(self) -> None:
-        with self._lock:
-            if self._process is not None and self._process.poll() is None:
-                return
-            self._start_process_locked()
-        self.initialize()
-
-    def _start_process_locked(self) -> None:
-        self._process = subprocess.Popen(
-            ["codex", "app-server"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-        self._initialized = False
-        self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
-        self._stdout_thread.start()
-        self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
-        self._stderr_thread.start()
-
-    def _read_stdout(self) -> None:
-        assert self._process is not None and self._process.stdout is not None
-        for line in self._process.stdout:
-            raw = str(line).strip()
-            if not raw:
-                continue
-            try:
-                message = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if "id" in message and ("result" in message or "error" in message):
-                request_id = int(message["id"])
-                pending = self._pending.get(request_id)
-                if pending is not None:
-                    pending.put(message)
-                continue
-            if "id" in message and "method" in message and "params" in message:
-                # Server-initiated request. Reply with unsupported unless the caller intercepts.
-                self._emit({"kind": "server_request", "message": message})
-                self._send_response(
-                    int(message["id"]),
-                    error={"code": -32601, "message": "Unsupported by Figure Studio"},
-                )
-                continue
-            self._emit({"kind": "notification", "message": message})
-
-    def _read_stderr(self) -> None:
-        assert self._process is not None and self._process.stderr is not None
-        for line in self._process.stderr:
-            text = str(line).strip()
-            if text:
-                self._emit({"kind": "stderr", "message": {"text": text}})
-
-    def _send_message(self, payload: dict[str, Any]) -> None:
-        self.ensure_started()
-        assert self._process is not None and self._process.stdin is not None
-        self._process.stdin.write(json.dumps(payload) + "\n")
-        self._process.stdin.flush()
-
-    def _send_response(self, request_id: int, *, result: Any | None = None, error: dict[str, Any] | None = None) -> None:
-        payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
-        if error is not None:
-            payload["error"] = error
-        else:
-            payload["result"] = result
-        self._send_message(payload)
-
-    def request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        self.ensure_started()
-        self._request_id += 1
-        request_id = self._request_id
-        inbox: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1)
-        self._pending[request_id] = inbox
-        try:
-            self._send_message(
-                {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "method": method,
-                    "params": params,
-                }
-            )
-            response = inbox.get(timeout=120)
-        except queue.Empty as error:
-            raise HTTPException(status_code=504, detail=f"Timed out waiting for Codex App Server response: {method}") from error
-        finally:
-            self._pending.pop(request_id, None)
-        if "error" in response:
-            detail = response["error"]
-            if isinstance(detail, dict):
-                message = str(detail.get("message", "Codex request failed."))
-            else:
-                message = str(detail)
-            raise HTTPException(status_code=502, detail=message)
-        return response.get("result", {})
-
-    def initialize(self) -> dict[str, Any]:
-        if self._initialized:
-            return {}
-        response = self.request(
-            "initialize",
-            {
-                "clientInfo": {"name": "figure-studio", "version": "0.1.0"},
-                "capabilities": {"experimentalApi": True},
-            },
-        )
-        self._initialized = True
-        return response
 
 
 class CodexRunBroker:
@@ -190,33 +61,13 @@ class CodexService:
         event = self.store.append_run_event(run_id, event_type, payload)
         self.broker.publish(run_id, event)
 
-    @staticmethod
-    def _stage_annotated_image(variant_staging_dir: Path, annotated_image_url: str) -> Path | None:
-        value = annotated_image_url.strip()
-        if not value:
-            return None
-        data_url_match = re.match(r"^data:(?P<mime>[^;,]+);base64,(?P<data>.+)$", value, re.DOTALL)
-        if not data_url_match:
-            return None
-        mime_type = str(data_url_match.group("mime") or "").strip().lower()
-        encoded = str(data_url_match.group("data") or "").strip()
-        if not mime_type or not encoded:
-            return None
-        extension = {
-            "image/svg+xml": "svg",
-            "image/png": "png",
-            "image/jpeg": "jpg",
-            "image/webp": "webp",
-        }.get(mime_type)
-        if not extension:
-            return None
-        try:
-            payload = base64.b64decode(encoded, validate=True)
-        except Exception:
-            return None
-        image_path = variant_staging_dir / f"codex_attachment.{extension}"
-        image_path.write_bytes(payload)
-        return image_path
+    def get_variant_runtime_file(self, variant_id: str) -> Path:
+        variant = self.store.get_variant(variant_id)
+        runtime_path = str(variant.get("controlRuntimePath") or "").strip()
+        if not runtime_path:
+            raise HTTPException(status_code=404, detail="This Codex variant does not have a generated control runtime.")
+        _, candidate = normalize_control_runtime_path(Path(variant["stagingDir"]), runtime_path)
+        return candidate
 
     def _active_run_ids(self) -> list[str]:
         with self._lock:
@@ -306,22 +157,46 @@ class CodexService:
             run = self.store.get_run(run_id)
             scope = str(run.get("scopeSnapshot", "figure") or "figure")
             target_figure_id = str(run.get("targetFigureId", "") or "")
-            staging_svg = self._read_staging_svg(Path(variant["stagingDir"]), scope, target_figure_id)
-            self.store.update_variant(
-                variant_id,
-                latest_diff=str(params.get("diff", "") or ""),
-                latest_preview_svg=staging_svg,
-            )
+            staging_svg = read_staging_svg(Path(variant["stagingDir"]), scope, target_figure_id)
+            updates: dict[str, Any] = {
+                "latest_diff": str(params.get("diff", "") or ""),
+                "latest_preview_svg": staging_svg,
+            }
+            try:
+                bundle = read_control_bundle(Path(variant["stagingDir"]))
+            except HTTPException:
+                bundle = None
+            if bundle is not None:
+                updates["control_manifest_json"] = json.dumps(bundle["manifest"])
+                updates["control_runtime_path"] = bundle["runtimePath"]
+                updates["control_status"] = "Generated controls ready."
+            self.store.update_variant(variant_id, **updates)
         elif method == "turn/completed":
             run = self.store.get_run(run_id)
             scope = str(run.get("scopeSnapshot", "figure") or "figure")
             target_figure_id = str(run.get("targetFigureId", "") or "")
-            self.store.update_variant(
-                variant_id,
-                state="completed",
-                current_status="Completed",
-                latest_preview_svg=self._read_staging_svg(Path(variant["stagingDir"]), scope, target_figure_id),
-            )
+            try:
+                bundle = read_control_bundle(Path(variant["stagingDir"]))
+            except HTTPException as error:
+                self.store.update_variant(
+                    variant_id,
+                    state="failed",
+                    current_status=str(error.detail),
+                    control_status=str(error.detail),
+                    latest_preview_svg=read_staging_svg(Path(variant["stagingDir"]), scope, target_figure_id),
+                )
+            else:
+                self.store.update_variant(
+                    variant_id,
+                    state="completed",
+                    current_status="Completed",
+                    latest_preview_svg=read_staging_svg(Path(variant["stagingDir"]), scope, target_figure_id),
+                    control_manifest_json=json.dumps(bundle["manifest"]),
+                    control_runtime_path=bundle["runtimePath"],
+                    interactive_state_json=json.dumps(bundle["manifest"].get("initialState", {})),
+                    interactive_preview_svg=None,
+                    control_status="Generated controls ready.",
+                )
             with self._lock:
                 self._native_thread_variant_map.pop(native_thread_id, None)
         elif method == "error":
@@ -331,115 +206,6 @@ class CodexService:
                 self._native_thread_variant_map.pop(native_thread_id, None)
         self._aggregate_run(run_id)
         self._publish(run_id, f"codex.{method.replace('/', '.')}", {**params, "variantId": variant_id})
-
-    @staticmethod
-    def _write_staging_agents_file(staging_dir: Path) -> None:
-        source = ROOT / "AGENTS.md"
-        if not source.exists():
-            return
-        (staging_dir / "AGENTS.md").write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-
-    @staticmethod
-    def _build_single_figure_staging_dir(staging_dir: Path, figure_id: str) -> None:
-        if staging_dir.exists():
-            shutil.rmtree(staging_dir)
-        staging_dir.mkdir(parents=True, exist_ok=True)
-        CodexService._write_staging_agents_file(staging_dir)
-        entry = figure_entry(figure_id)
-        source_dir = Path(resolve_from_root(str(entry["folder"])))
-        shutil.copytree(source_dir, staging_dir, dirs_exist_ok=True)
-
-    @staticmethod
-    def _build_global_staging_dir(staging_dir: Path) -> None:
-        if staging_dir.exists():
-            shutil.rmtree(staging_dir)
-        staging_dir.mkdir(parents=True, exist_ok=True)
-        CodexService._write_staging_agents_file(staging_dir)
-        figures_dir = staging_dir / "figures"
-        figures_dir.mkdir(parents=True, exist_ok=True)
-        manifest: list[dict[str, Any]] = []
-        for entry in workspace_figures():
-            figure_id = str(entry.get("id", "")).strip()
-            if not figure_id:
-                continue
-            source_dir = Path(resolve_from_root(str(entry["folder"])))
-            destination_dir = figures_dir / figure_id
-            shutil.copytree(source_dir, destination_dir, dirs_exist_ok=True)
-            manifest.append(
-                {
-                    "id": figure_id,
-                    "title": str(entry.get("title", "")).strip(),
-                    "folder": f"figures/{figure_id}",
-                    "entrySvg": str(entry.get("entrySvg", "figure.svg")).strip() or "figure.svg",
-                    "sourceFiles": [str(path.relative_to(staging_dir)) for path in sorted(destination_dir.rglob("*")) if path.is_file()],
-                }
-            )
-        workspace_snapshot = WORKSPACE_PATH.read_text(encoding="utf-8") if WORKSPACE_PATH.exists() else "{}\n"
-        (staging_dir / "workspace.json").write_text(workspace_snapshot, encoding="utf-8")
-        (staging_dir / "workspace_manifest.json").write_text(
-            json.dumps({"scope": "global", "figureCount": len(manifest), "figures": manifest}, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-    @classmethod
-    def _build_staging_dir(cls, staging_dir: Path, figure_id: str, scope: str) -> None:
-        if scope == "global":
-            cls._build_global_staging_dir(staging_dir)
-            return
-        cls._build_single_figure_staging_dir(staging_dir, figure_id)
-
-    @staticmethod
-    def _read_staging_svg(staging_dir: Path, scope: str, target_figure_id: str = "") -> str | None:
-        if scope == "global":
-            if not target_figure_id:
-                return None
-            svg_path = staging_dir / "figures" / target_figure_id / "figure.svg"
-        else:
-            svg_path = staging_dir / "figure.svg"
-        if not svg_path.exists():
-            return None
-        return svg_path.read_text(encoding="utf-8")
-
-    @staticmethod
-    def _workspace_summary() -> list[dict[str, Any]]:
-        summary: list[dict[str, Any]] = []
-        for entry in workspace_figures():
-            figure_id = str(entry.get("id", "")).strip()
-            if not figure_id:
-                continue
-            summary.append(
-                {
-                    "figureId": figure_id,
-                    "figureTitle": str(entry.get("title", "")).strip(),
-                    "folder": str(entry.get("folder", "")).strip(),
-                    "entrySvg": str(entry.get("entrySvg", "figure.svg")).strip() or "figure.svg",
-                    "sourceFiles": figure_files(entry),
-                }
-            )
-        return summary
-
-    @staticmethod
-    def _sync_global_staging_dir(staging_dir: Path) -> None:
-        staged_figures_root = staging_dir / "figures"
-        if not staged_figures_root.exists():
-            raise HTTPException(status_code=404, detail="Staged global figures directory is missing.")
-        for staged_path in sorted(staged_figures_root.rglob("*")):
-            if not staged_path.is_file():
-                continue
-            relative_path = staged_path.relative_to(staged_figures_root)
-            live_path = FIGURES_ROOT / relative_path
-            live_path.parent.mkdir(parents=True, exist_ok=True)
-            if live_path.exists() and live_path.read_bytes() == staged_path.read_bytes():
-                continue
-            shutil.copy2(staged_path, live_path)
-
-    def _sync_single_figure_variant(self, staging_dir: Path, target_figure_id: str) -> None:
-        entry = figure_entry(target_figure_id)
-        live_svg_path = figure_entry_svg(entry)
-        staged_svg_path = staging_dir / "figure.svg"
-        if not staged_svg_path.exists():
-            raise HTTPException(status_code=404, detail="Staged figure.svg is missing.")
-        live_svg_path.write_text(staged_svg_path.read_text(encoding="utf-8"), encoding="utf-8")
 
     def create_thread(
         self,
@@ -463,40 +229,8 @@ class CodexService:
             approval_policy=approval_policy,
             personality=personality,
         )
-        self._build_staging_dir(Path(thread["stagingDir"]), figure_id, scope)
+        build_staging_dir(Path(thread["stagingDir"]), figure_id, scope)
         return thread
-
-    @staticmethod
-    def _figure_target_summary(figure_id: str) -> dict[str, Any]:
-        entry = figure_entry(figure_id)
-        return {
-            "figureId": figure_id,
-            "figureTitle": str(entry.get("title", "")).strip(),
-            "folder": str(entry.get("folder", "")).strip(),
-            "entrySvg": str(entry.get("entrySvg", "figure.svg")).strip() or "figure.svg",
-            "sourceFiles": figure_files(entry),
-        }
-
-    def _compose_variant_prompt(
-        self,
-        *,
-        prompt: str,
-        figure_context: dict[str, Any],
-        target_figure: dict[str, Any],
-        scope: str,
-        variant_index: int,
-        results_count: int,
-        revision_payload: list[dict[str, Any]],
-    ) -> str:
-        distinct_instruction = (
-            f"You are producing option {variant_index + 1} of {results_count}. Make it meaningfully distinct from the other options in composition, emphasis, or layout choices."
-            if results_count > 1
-            else "Produce one clear candidate result."
-        )
-        revision_text = ""
-        if revision_payload:
-            revision_text = f"\n\nRevision candidates (JSON):\n{json.dumps(revision_payload, indent=2)}"
-        return f"{distinct_instruction}\n\n{self._compose_turn_prompt(prompt, figure_context, target_figure, scope)}{revision_text}"
 
     def start_run(
         self,
@@ -514,7 +248,7 @@ class CodexService:
         model = "gpt-5.4"
         scope = str(thread.get("scope", "figure") or "figure")
         reasoning_effort = str(thread.get("reasoningEffort") or "medium")
-        target_figure = self._figure_target_summary(active_figure_id)
+        target_figure = figure_target_summary(active_figure_id)
         total_results = max(1, min(3, results_count))
         revision_payload = self._prepare_revision_payload(thread_id, revision_variant_ids)
 
@@ -540,7 +274,7 @@ class CodexService:
         run_staging_root = Path(thread["stagingDir"]) / run["id"]
         for variant_index in range(total_results):
             variant_staging_dir = run_staging_root / f"option_{variant_index + 1}"
-            self._build_staging_dir(variant_staging_dir, active_figure_id, scope)
+            build_staging_dir(variant_staging_dir, active_figure_id, scope)
             variant = self.store.create_variant(
                 run_id=run["id"],
                 variant_index=variant_index,
@@ -576,7 +310,7 @@ class CodexService:
             turn_input: list[dict[str, Any]] = [
                 {
                     "type": "text",
-                    "text": self._compose_variant_prompt(
+                    "text": compose_variant_prompt(
                         prompt=prompt,
                         figure_context=figure_context,
                         target_figure=target_figure,
@@ -589,7 +323,7 @@ class CodexService:
             ]
             image_attached = False
             annotated_image_url = str(figure_context.get("annotatedImageUrl", "") or "").strip()
-            attachment_path = self._stage_annotated_image(variant_staging_dir, annotated_image_url) if annotated_image_url else None
+            attachment_path = stage_annotated_image(variant_staging_dir, annotated_image_url) if annotated_image_url else None
             if attachment_path is not None:
                 turn_input.append(
                     {
@@ -623,7 +357,7 @@ class CodexService:
         return self._aggregate_run(run["id"])
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
-        run = self.store.get_run(run_id)
+        self.store.get_run(run_id)
         variants = self.store.list_variants(run_id)
         interrupted = False
         for variant in variants:
@@ -647,7 +381,7 @@ class CodexService:
         return self._aggregate_run(run_id)
 
     def clear_thread(self, thread_id: str) -> dict[str, Any]:
-        thread = self.store.get_thread(thread_id)
+        self.store.get_thread(thread_id)
         if self.store.active_run_for_thread(thread_id) is not None:
             raise HTTPException(status_code=409, detail="Stop the active Codex run before clearing this chat.")
         with self._lock:
@@ -657,7 +391,7 @@ class CodexService:
                 if self.store.get_run(payload["runId"])["threadId"] != thread_id
             }
         cleared = self.store.clear_thread(thread_id)
-        self._build_staging_dir(
+        build_staging_dir(
             Path(cleared["stagingDir"]),
             cleared["figureId"],
             str(cleared.get("scope", "figure") or "figure"),
@@ -665,7 +399,7 @@ class CodexService:
         return self.store.get_thread(thread_id)
 
     def delete_thread(self, thread_id: str) -> None:
-        thread = self.store.get_thread(thread_id)
+        self.store.get_thread(thread_id)
         if self.store.active_run_for_thread(thread_id) is not None:
             raise HTTPException(status_code=409, detail="Stop the active Codex run before deleting this chat.")
         with self._lock:
@@ -701,11 +435,15 @@ class CodexService:
             raise HTTPException(status_code=409, detail="Only completed variants can be applied.")
         thread = self.store.get_thread(run["threadId"])
         scope = str(run.get("scopeSnapshot", "figure") or "figure")
+        interactive_preview_svg = str(variant.get("interactivePreviewSvg") or "").strip()
+        if interactive_preview_svg:
+            target_figure_id = str(run.get("targetFigureId", "") or thread.get("figureId", "") or "")
+            write_variant_preview_svg(Path(variant["stagingDir"]), scope, target_figure_id, interactive_preview_svg)
         if scope == "global":
-            self._sync_global_staging_dir(Path(variant["stagingDir"]))
+            sync_global_staging_dir(Path(variant["stagingDir"]))
         else:
             target_figure_id = str(run.get("targetFigureId", "") or thread.get("figureId", "") or "")
-            self._sync_single_figure_variant(Path(variant["stagingDir"]), target_figure_id)
+            sync_single_figure_variant(Path(variant["stagingDir"]), target_figure_id)
         self.store.update_variant(variant_id, review_state="applied", marked_for_revision=0)
         self.store.update_run(run["id"], review_state="applied", applied_variant_id=variant_id, current_status="Applied")
         self._publish(run["id"], "run.applied", {"variantId": variant_id, "targetFigureId": run.get("targetFigureId", ""), "scope": scope})
@@ -733,42 +471,45 @@ class CodexService:
         self._publish(run["id"], "variant.marked", {"variantId": variant_id, "marked": marked})
         return self.store.get_run(run["id"])
 
-    @staticmethod
-    def _compose_turn_prompt(prompt: str, figure_context: dict[str, Any], target_figure: dict[str, Any], scope: str) -> str:
-        has_figure_context = bool(
-            figure_context.get("figureId")
-            or figure_context.get("svg")
-            or figure_context.get("selectedIds")
-            or figure_context.get("selectedObjects")
-            or figure_context.get("annotations")
+    def save_variant_interactive(
+        self,
+        variant_id: str,
+        *,
+        state: dict[str, Any],
+        preview_svg: str | None,
+        status: str | None,
+    ) -> dict[str, Any]:
+        variant = self.store.get_variant(variant_id)
+        run = self.store.get_run(variant["runId"])
+        if run.get("reviewState") == "applied" or variant.get("reviewState") != "pending":
+            raise HTTPException(status_code=409, detail="Only pending variants can be tuned.")
+        if not variant.get("controlManifest"):
+            raise HTTPException(status_code=409, detail="This variant does not have generated controls.")
+        sanitized_svg = sanitize_svg(preview_svg) if preview_svg and preview_svg.strip() else None
+        self.store.update_variant(
+            variant_id,
+            interactive_state_json=json.dumps(state),
+            interactive_preview_svg=sanitized_svg,
+            control_status=(status or "Generated controls ready.").strip(),
         )
-        context_payload = {
-            "figureId": figure_context.get("figureId"),
-            "figureTitle": figure_context.get("figureTitle"),
-            "selectedIds": figure_context.get("selectedIds", []),
-            "selectedObjects": figure_context.get("selectedObjects", []),
-            "annotations": figure_context.get("annotations", []),
-            "figureSvg": figure_context.get("svg", ""),
-        }
-        if not has_figure_context:
-            if scope == "global":
-                workspace_payload = {
-                    "scope": "global",
-                    "figures": CodexService._workspace_summary(),
-                    "activeFigure": target_figure,
-                }
-                return f"{prompt.strip()}\n\nGlobal figure workspace context (JSON):\n{json.dumps(workspace_payload, indent=2)}"
-            return f"{prompt.strip()}\n\nFigure target context (JSON):\n{json.dumps(target_figure, indent=2)}"
-        if scope == "global":
-            workspace_payload = {
-                "scope": "global",
-                "figures": CodexService._workspace_summary(),
-                "activeFigure": target_figure,
-                "activeFigureContext": context_payload,
-            }
-            return f"{prompt.strip()}\n\nGlobal figure workspace context (JSON):\n{json.dumps(workspace_payload, indent=2)}"
-        payload = {
-            "targetFigure": target_figure,
-            "figureContext": context_payload,
-        }
-        return f"{prompt.strip()}\n\nFigure editing context (JSON):\n{json.dumps(payload, indent=2)}"
+        self._publish(run["id"], "variant.interactive.updated", {"variantId": variant_id})
+        return self.store.get_run(run["id"])
+
+    def reset_variant_interactive(self, variant_id: str) -> dict[str, Any]:
+        variant = self.store.get_variant(variant_id)
+        run = self.store.get_run(variant["runId"])
+        if run.get("reviewState") == "applied" or variant.get("reviewState") != "pending":
+            raise HTTPException(status_code=409, detail="Only pending variants can be reset.")
+        raw_manifest = variant.get("controlManifest")
+        manifest = cast(dict[str, object], raw_manifest) if isinstance(raw_manifest, dict) else {}
+        initial_state = manifest.get("initialState", {})
+        if not isinstance(initial_state, dict):
+            initial_state = {}
+        self.store.update_variant(
+            variant_id,
+            interactive_state_json=json.dumps(initial_state),
+            interactive_preview_svg=None,
+            control_status="Reset to generated output.",
+        )
+        self._publish(run["id"], "variant.interactive.reset", {"variantId": variant_id})
+        return self.store.get_run(run["id"])

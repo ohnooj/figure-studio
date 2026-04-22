@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 from fastapi import HTTPException
-
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_PATH = ROOT / "workspace.json"
@@ -35,10 +35,10 @@ def read_json(path: Path) -> dict[str, object]:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Missing file: {path}")
     with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
+        payload = cast(object, json.load(handle))
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail=f"{path.name} must contain one JSON object")
-    return payload
+    return cast(dict[str, object], payload)
 
 
 def write_json(path: Path, payload: dict[str, object]) -> None:

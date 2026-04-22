@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from fastapi import HTTPException
 
 from .files import ROOT, TEMPLATES_ROOT, WORKSPACE_PATH, read_json, resolve_from_root, write_json
-
 
 TEMPLATE_LIBRARY = [
     {
@@ -66,6 +66,13 @@ TEMPLATE_LIBRARY = [
 DEFAULT_TEMPLATE_ID = "blank"
 
 
+def object_dicts(values: object) -> list[dict[str, object]]:
+    if not isinstance(values, list):
+        return []
+    list_values = cast(list[object], values)
+    return [cast(dict[str, object], item) for item in list_values if isinstance(item, dict)]
+
+
 def workspace() -> dict[str, object]:
     return read_json(WORKSPACE_PATH)
 
@@ -78,7 +85,7 @@ def workspace_figures() -> list[dict[str, object]]:
     figures = workspace().get("figures", [])
     if not isinstance(figures, list):
         raise HTTPException(status_code=500, detail="workspace figures must be a list")
-    return [item for item in figures if isinstance(item, dict)]
+    return object_dicts(cast(object, figures))
 
 
 def figure_entry(figure_id: str) -> dict[str, object]:
@@ -140,15 +147,11 @@ def template_svg(template_id: str, title: str) -> str:
 
 
 def bookmark_entries() -> list[dict[str, str]]:
-    bookmarks = workspace().get("bookmarks", [])
-    if not isinstance(bookmarks, list):
-        return []
+    bookmarks = object_dicts(workspace().get("bookmarks", []))
     result: list[dict[str, str]] = []
-    for item in bookmarks:
-        if not isinstance(item, dict):
-            continue
-        alias = str(item.get("alias", "")).strip()
-        path = str(item.get("path", "")).strip()
+    for bookmark in bookmarks:
+        alias = str(bookmark.get("alias", "")).strip()
+        path = str(bookmark.get("path", "")).strip()
         if alias and path:
             result.append({"alias": alias, "path": path})
     return result
@@ -157,8 +160,7 @@ def bookmark_entries() -> list[dict[str, str]]:
 def allowed_asset_sources(entry: dict[str, object]) -> list[Path]:
     folder = figure_folder(entry)
     roots = [folder, folder / "assets"]
-    for bookmark in bookmark_entries():
-        roots.append(resolve_from_root(bookmark["path"]))
+    roots.extend(resolve_from_root(bookmark["path"]) for bookmark in bookmark_entries())
     return roots
 
 

@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { ChangeEvent, Ref } from "react";
 
-import { useScrollShadowState } from "../../app/hooks/useScrollShadowState";
+import { useScrollShadowState } from "../../shared/hooks/useScrollShadowState";
 import type { ActionState, FigureAssets } from "../../shared/types/editor";
 
 function AssetList(props: { items: { origin: string; path: string; sourcePath: string; name: string }[]; prefix: string }) {

@@ -59,6 +59,7 @@ textarea {
   padding: 0.36rem 0.52rem;
   background: var(--input-bg);
   color: var(--text-main);
+  caret-color: var(--text-main);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
 }

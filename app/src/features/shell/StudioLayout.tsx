@@ -9,6 +9,7 @@ import { AttachedPayloadPanel } from "../codex/AttachedPayloadPanel";
 import { CodexWorkspace } from "../codex/CodexWorkspace";
 import { ObjectTreeView } from "../hierarchy/ObjectTreeView";
 import { CaptionPanel } from "../inspector/CaptionPanel";
+import { GeneratedControlsPanel } from "../inspector/GeneratedControlsPanel";
 import { InspectorPanel } from "../inspector/InspectorPanel";
 import { CanvasToolbar } from "./CanvasToolbar";
 import type {
@@ -19,6 +20,7 @@ import type {
   CodexAnnotationTool,
   CodexFigureContext,
   CodexRun,
+  CodexRunVariant,
   FigureAssets,
   FigureSource,
   InspectorCapabilities,
@@ -76,6 +78,8 @@ export function StudioLayout(props: {
   codexFigureContext: CodexFigureContext | null;
   codexGalleryRun: CodexRun | null;
   codexGalleryVisible: boolean;
+  focusedCodexControlRun: CodexRun | null;
+  focusedCodexControlVariant: CodexRunVariant | null;
   focusedGalleryCardId: string;
   marqueeBox: { left: number; top: number; width: number; height: number } | null;
   alignmentGuides: AlignmentGuide[];
@@ -151,6 +155,8 @@ export function StudioLayout(props: {
   onNewAttributeValueChange: React.Dispatch<React.SetStateAction<string>>;
   onAddAttribute: () => void;
   onClearSlotImage: () => void;
+  onApplyCodexVariant: (variant: CodexRunVariant) => Promise<void>;
+  onRejectCodexVariant: (variant: CodexRunVariant) => Promise<void>;
 }) {
   return (
     <main className="studio-layout">
@@ -336,31 +342,42 @@ export function StudioLayout(props: {
             onStatus={props.onCodexStatus}
           />
         ) : (
-          <InspectorPanel
-            embedded
-            selected={props.selected}
-            artboardWidth={props.viewport.artboardWidth}
-            artboardHeight={props.viewport.artboardHeight}
-            selectedAttributes={props.selectedAttributes}
-            selectedResolvedStyle={props.selectedResolvedStyle}
-            selectedInspectorCapabilities={props.selectedInspectorCapabilities}
-            newAttributeName={props.newAttributeName}
-            newAttributeValue={props.newAttributeValue}
-            onArtboardGeometryChange={props.onArtboardGeometryChange}
-            onArtboardGeometryPreview={props.onArtboardGeometryPreview}
-            onGeometryChange={props.onGeometryChange}
-            onGeometryPreview={props.onGeometryPreview}
-            onTextChange={props.onTextChange}
-            onStyleNumberChange={props.onStyleNumberChange}
-            onStyleNumberPreview={props.onStyleNumberPreview}
-            onStyleStringPreview={props.onStyleStringPreview}
-            onStyleStringChange={props.onStyleStringChange}
-            onAttributeChange={props.onAttributeChange}
-            onNewAttributeNameChange={props.onNewAttributeNameChange}
-            onNewAttributeValueChange={props.onNewAttributeValueChange}
-            onAddAttribute={props.onAddAttribute}
-            onClearSlotImage={props.onClearSlotImage}
-          />
+          props.focusedCodexControlRun && props.focusedCodexControlVariant ? (
+            <GeneratedControlsPanel
+              embedded
+              run={props.focusedCodexControlRun}
+              variant={props.focusedCodexControlVariant}
+              onApply={props.onApplyCodexVariant}
+              onReject={props.onRejectCodexVariant}
+              onStatus={props.onCodexStatus}
+            />
+          ) : (
+            <InspectorPanel
+              embedded
+              selected={props.selected}
+              artboardWidth={props.viewport.artboardWidth}
+              artboardHeight={props.viewport.artboardHeight}
+              selectedAttributes={props.selectedAttributes}
+              selectedResolvedStyle={props.selectedResolvedStyle}
+              selectedInspectorCapabilities={props.selectedInspectorCapabilities}
+              newAttributeName={props.newAttributeName}
+              newAttributeValue={props.newAttributeValue}
+              onArtboardGeometryChange={props.onArtboardGeometryChange}
+              onArtboardGeometryPreview={props.onArtboardGeometryPreview}
+              onGeometryChange={props.onGeometryChange}
+              onGeometryPreview={props.onGeometryPreview}
+              onTextChange={props.onTextChange}
+              onStyleNumberChange={props.onStyleNumberChange}
+              onStyleNumberPreview={props.onStyleNumberPreview}
+              onStyleStringPreview={props.onStyleStringPreview}
+              onStyleStringChange={props.onStyleStringChange}
+              onAttributeChange={props.onAttributeChange}
+              onNewAttributeNameChange={props.onNewAttributeNameChange}
+              onNewAttributeValueChange={props.onNewAttributeValueChange}
+              onAddAttribute={props.onAddAttribute}
+              onClearSlotImage={props.onClearSlotImage}
+            />
+          )
         )}
       </aside>
     </main>

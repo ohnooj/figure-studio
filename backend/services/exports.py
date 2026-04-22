@@ -2,32 +2,36 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from pathlib import Path
 
 from fastapi import HTTPException
 
 from .files import ROOT, next_export_version_dir, resolve_from_root
 
 
-def build_pdf_export(svg_path, pdf_path):
-  inkscape = shutil.which("inkscape")
-  if inkscape is None:
-    return {
-      "ok": False,
-      "error": "inkscape_not_found",
-      "message": "Inkscape is not installed or not on PATH.",
-      "svgPath": str(svg_path.relative_to(ROOT)),
-      "pdfPath": str(pdf_path.relative_to(ROOT)),
-    }
-  try:
-    subprocess.run(
-      [inkscape, str(svg_path), "--export-type=pdf", f"--export-filename={pdf_path}"],
-      check=True,
-      capture_output=True,
-      text=True,
-    )
-  except subprocess.CalledProcessError as exc:
-    raise HTTPException(status_code=500, detail=exc.stderr or exc.stdout or "Inkscape export failed")
-  return {"ok": True, "svgPath": str(svg_path.relative_to(ROOT)), "pdfPath": str(pdf_path.relative_to(ROOT))}
+def build_pdf_export(svg_path: Path, pdf_path: Path) -> dict[str, object]:
+    inkscape = shutil.which("inkscape")
+    if inkscape is None:
+        return {
+            "ok": False,
+            "error": "inkscape_not_found",
+            "message": "Inkscape is not installed or not on PATH.",
+            "svgPath": str(svg_path.relative_to(ROOT)),
+            "pdfPath": str(pdf_path.relative_to(ROOT)),
+        }
+    try:
+        subprocess.run(
+            [inkscape, str(svg_path), "--export-type=pdf", f"--export-filename={pdf_path}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=exc.stderr or exc.stdout or "Inkscape export failed",
+        ) from exc
+    return {"ok": True, "svgPath": str(svg_path.relative_to(ROOT)), "pdfPath": str(pdf_path.relative_to(ROOT))}
 
 
 def export_bundle(figure_id: str, svg: str, text: str | None = None) -> dict[str, object]:

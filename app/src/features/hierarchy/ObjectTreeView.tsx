@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject } from "react";
 
-import { useScrollShadowState } from "../../app/hooks/useScrollShadowState";
+import { useScrollShadowState } from "../../shared/hooks/useScrollShadowState";
 import type { ObjectNode } from "../../shared/types/editor";
-import { CODEX_PROMPT_REFERENCE_MIME, serializePromptReferenceToken, type PromptReferenceToken } from "../codex/promptTokens";
+import { CODEX_PROMPT_REFERENCE_MIME, referenceChipId, serializePromptReferenceToken, type PromptReferenceToken } from "../codex/promptTokens";
 
 function kindIcon(kind: ObjectNode["kind"]): string {
   switch (kind) {
@@ -238,6 +238,7 @@ function ObjectTreeNode(props: {
             hoveredId === node.id ? "hovered" : "",
             dropTarget === node.id ? "drop-target" : "",
           ].join(" ")}
+          data-reference-chip-id={referenceChipId({ kind: "object", id: node.id, label: node.label, objectKind: node.kind })}
           onClick={(event) => onSelect(node.id, event)}
           onMouseEnter={() => onHover?.(node.id)}
           onMouseLeave={() => onHover?.("")}

@@ -21,6 +21,29 @@ function normalizeCodexRun(run: CodexRun): CodexRun {
     variants: Array.isArray(run.variants)
       ? run.variants.map((variant) => ({
           ...variant,
+          controlManifest: variant.controlManifest && typeof variant.controlManifest === "object"
+            ? {
+                id: String(variant.controlManifest.id || "codex-generated-controls"),
+                title: String(variant.controlManifest.title || "Generated Controls"),
+                intentSummary: String(variant.controlManifest.intentSummary || ""),
+                userGoal: String(variant.controlManifest.userGoal || ""),
+                changeTheme: String(variant.controlManifest.changeTheme || ""),
+                controlSummary: String(variant.controlManifest.controlSummary || ""),
+                runtimeEntry: String(variant.controlManifest.runtimeEntry || "runtime.js"),
+                initialState: variant.controlManifest.initialState && typeof variant.controlManifest.initialState === "object"
+                  ? variant.controlManifest.initialState
+                  : {},
+                changedElementHints: Array.isArray(variant.controlManifest.changedElementHints)
+                  ? variant.controlManifest.changedElementHints.map((item) => String(item))
+                  : [],
+              }
+            : null,
+          controlRuntimePath: variant.controlRuntimePath || null,
+          controlHostUrl: `${API_ROOT}/api/codex/variants/${variant.id}/control-host`,
+          controlRuntimeUrl: `${API_ROOT}/api/codex/variants/${variant.id}/control-runtime.js`,
+          interactiveState: variant.interactiveState && typeof variant.interactiveState === "object" ? variant.interactiveState : {},
+          interactivePreviewSvg: variant.interactivePreviewSvg || null,
+          controlStatus: variant.controlStatus || null,
           reviewState: variant.reviewState === "applied" ? "applied" : variant.reviewState === "rejected" ? "rejected" : "pending",
           markedForRevision: Boolean(variant.markedForRevision),
         }))
@@ -131,18 +154,6 @@ export function cancelCodexRun(runId: string): Promise<{ run: CodexRun }> {
   }));
 }
 
-export function applyCodexRun(runId: string): Promise<{ run: CodexRun }> {
-  return api<{ run: CodexRun }>(`/api/codex/runs/${runId}/apply`, { method: "POST" }).then((payload) => ({
-    run: normalizeCodexRun(payload.run),
-  }));
-}
-
-export function rejectCodexRun(runId: string): Promise<{ run: CodexRun }> {
-  return api<{ run: CodexRun }>(`/api/codex/runs/${runId}/reject`, { method: "POST" }).then((payload) => ({
-    run: normalizeCodexRun(payload.run),
-  }));
-}
-
 export function applyCodexVariant(variantId: string): Promise<{ run: CodexRun }> {
   return api<{ run: CodexRun }>(`/api/codex/variants/${variantId}/apply`, { method: "POST" }).then((payload) => ({
     run: normalizeCodexRun(payload.run),
@@ -161,6 +172,30 @@ export function markCodexVariant(variantId: string, marked: boolean): Promise<{ 
     body: JSON.stringify({ marked }),
   }).then((payload) => ({
     run: normalizeCodexRun(payload.run),
+  }));
+}
+
+export function saveCodexVariantInteractive(
+  variantId: string,
+  payload: {
+    state: Record<string, unknown>;
+    previewSvg?: string | null;
+    status?: string | null;
+  },
+): Promise<{ run: CodexRun }> {
+  return api<{ run: CodexRun }>(`/api/codex/variants/${variantId}/interactive`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }).then((response) => ({
+    run: normalizeCodexRun(response.run),
+  }));
+}
+
+export function resetCodexVariantInteractive(variantId: string): Promise<{ run: CodexRun }> {
+  return api<{ run: CodexRun }>(`/api/codex/variants/${variantId}/interactive/reset`, {
+    method: "POST",
+  }).then((response) => ({
+    run: normalizeCodexRun(response.run),
   }));
 }
 

@@ -6,6 +6,7 @@ import { allSelectableElements, overlayRectFromElements, overlayRectFromElement,
 import { prepareSvgForPreview, serializeSvg, inspectorCapabilities, resolvedInspectorStyle, visibleAttributes, visibleSharedAttributes } from "../../shared/lib/svg/serialize";
 import { endTraceOperation, startTraceOperation, traceOperationDuration } from "../../shared/lib/trace";
 import type { AttributeEntry, FigureSource, InspectorCapabilities, InspectorStyle, ObjectNode, SelectedElement, SelectionBox } from "../../shared/types/editor";
+import { CODEX_PROMPT_REFERENCE_MIME, objectPromptLabel, referenceChipId, serializePromptReferenceToken, type PromptReferenceToken } from "../../features/codex/promptTokens";
 
 function sameIds(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
@@ -239,6 +240,26 @@ export function useEditorSelection(config: {
     const liveRoot = svgRoot();
     if (liveRoot) {
       ensureSelectableIds(liveRoot);
+      allSelectableElements(liveRoot).forEach((element) => {
+        const summary = selectedFromElement(element);
+        const token: PromptReferenceToken = {
+          kind: "object",
+          id: summary.id,
+          label: objectPromptLabel(summary),
+          objectKind: summary.kind,
+        };
+        element.setAttribute("draggable", "true");
+        element.setAttribute("data-reference-chip-id", referenceChipId(token));
+        element.addEventListener("dragstart", (event) => {
+          const dragEvent = event as DragEvent;
+          if (!dragEvent.dataTransfer) {
+            return;
+          }
+          dragEvent.dataTransfer.effectAllowed = "copy";
+          dragEvent.dataTransfer.setData(CODEX_PROMPT_REFERENCE_MIME, JSON.stringify(token));
+          dragEvent.dataTransfer.setData("text/plain", serializePromptReferenceToken(token));
+        });
+      });
     }
     rebuildObjectTree(liveRoot);
     const currentSelectionIds = config.selectedIdsRef.current;
