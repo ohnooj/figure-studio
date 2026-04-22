@@ -114,12 +114,17 @@ Control manifest requirements:
 - `runtimeEntry` must point to the runtime file, usually `runtime.js`
 - `initialState` must be a JSON object
 - Optionally include `changedElementHints` as an array of ids or labels
+- `controlSummary` should describe multiple distinct tuning controls, not a single control
 
 Runtime requirements:
 - Export an async `mount(root, context)` function
 - You may optionally export `dispose()` or `update(context)`
 - Render your custom controls into `root`
 - Infer why the user asked for the change and expose the most useful parameters to tune that change
+- Do not stop at one control when the design change has multiple meaningful axes
+- Prefer multiple distinct controls that cover different adjustment strategies, such as intensity, layout, emphasis, contrast, density, spacing, balance, or style
+- If one primary control is obvious, still add secondary controls that let the user steer or recover the design if the first interpretation is not what they wanted
+- Choose control sets that represent different ways the user may want to refine the result, not just different numeric views of the same variable
 - Use the provided context methods to update the variant:
   - `context.setState(nextState)`
   - `context.setPreviewSvg(nextSvg)`

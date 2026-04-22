@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: app/package-lock.json
 
@@ -82,6 +82,6 @@ jobs:
           sarif_file: trivy-results.sarif
 
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.9
+        uses: step-security/gitleaks-action@v2.4.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
