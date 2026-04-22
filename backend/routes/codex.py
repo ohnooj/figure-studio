@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import queue
 from collections.abc import AsyncIterator
@@ -178,7 +179,7 @@ def codex_variant_control_runtime(variant_id: str) -> FileResponse:
 @router.get("/api/codex/variants/{variant_id}/control-host")
 def codex_variant_control_host(variant_id: str) -> HTMLResponse:
   get_codex_run_or_404(codex_store.get_variant(variant_id)["runId"])
-  runtime_url = f"/api/codex/variants/{variant_id}/control-runtime.js"
+  runtime_url = f"/api/codex/variants/{html.escape(variant_id, quote=True)}/control-runtime.js"
   html = f"""<!doctype html>
 <html lang="en">
   <head>
