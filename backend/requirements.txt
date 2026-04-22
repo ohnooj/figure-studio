@@ -1,4 +1,5 @@
 fastapi>=0.115
+defusedxml==0.7.1
 uvicorn>=0.30
 python-multipart>=0.0.26
 h11>=0.16.0
