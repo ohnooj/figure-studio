@@ -1,0 +1,40 @@
+name: maintenance-audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: app
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: File size audit
+        run: make audit-size
+      - name: Dead code audit
+        run: cd app && npm run check:dead-code
+      - name: Boundary audit
+        run: cd app && npm run check:boundaries
+      - name: Backend lint audit
+        run: cd app && npm run check:backend:lint
+      - name: Backend type audit
+        run: cd app && npm run check:backend:types
