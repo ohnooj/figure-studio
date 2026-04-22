@@ -8,6 +8,9 @@ on:
     - cron: "23 4 * * 1"
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: read
   security-events: write
@@ -16,7 +19,7 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
@@ -34,9 +37,8 @@ jobs:
 
       - name: Install backend dependencies and security tooling
         run: |
-          python -m venv .venv
-          .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 
       - name: npm audit
         run: npm run check:frontend:deps
@@ -60,12 +62,12 @@ jobs:
   repo-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -74,12 +76,12 @@ jobs:
           severity: HIGH,CRITICAL
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-results.sarif
 
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

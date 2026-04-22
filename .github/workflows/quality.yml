@@ -5,11 +5,14 @@ on:
   push:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -23,8 +26,7 @@ jobs:
         working-directory: app
       - name: Install backend deps
         run: |
-          python -m venv .venv
-          .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
       - name: Run quality gate
         run: make check
