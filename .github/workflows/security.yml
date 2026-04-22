@@ -34,8 +34,9 @@ jobs:
 
       - name: Install backend dependencies and security tooling
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 
       - name: npm audit
         run: npm run check:frontend:deps
