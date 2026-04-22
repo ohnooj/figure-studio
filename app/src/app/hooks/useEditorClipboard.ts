@@ -34,11 +34,11 @@ function rewriteCloneIds(rootElement: SVGElement, liveRoot: SVGSVGElement): void
   });
 
   const rewriteValue = (value: string): string => {
-    let next = value.replace(/url\(#([^)]+)\)/g, (match, id) => (idMap.has(id) ? `url(#${idMap.get(id)})` : match));
+    let next = value.replace(/url\(#([^)]+)\)/g, (match: string, id: string) => (idMap.has(id) ? `url(#${idMap.get(id) ?? id})` : match));
     if (next.startsWith("#")) {
       const referenced = next.slice(1);
       if (idMap.has(referenced)) {
-        next = `#${idMap.get(referenced)}`;
+        next = `#${idMap.get(referenced) ?? referenced}`;
       }
     }
     return next;

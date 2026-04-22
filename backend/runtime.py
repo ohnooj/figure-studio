@@ -7,7 +7,6 @@ from .codex_store import CodexStore
 from .events import FileEventBroker, watch_paths
 from .services.files import FIGURES_ROOT, ROOT, TEMPLATES_ROOT, WORKSPACE_PATH
 
-
 broker = FileEventBroker()
 codex_store = CodexStore()
 codex_run_broker = CodexRunBroker()

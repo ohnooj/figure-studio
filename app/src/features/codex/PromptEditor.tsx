@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import type { CodexFigureContext } from "../../shared/types/editor";
-import { CODEX_PROMPT_REFERENCE_MIME, CODEX_PROMPT_REFERENCE_MOVE_MIME, parsePromptSegments, promptTokenPreviewSrc, serializePromptReferenceToken, type PromptReferenceToken } from "./promptTokens";
+import { CODEX_PROMPT_REFERENCE_MIME, CODEX_PROMPT_REFERENCE_MOVE_MIME, parsePromptSegments, promptTokenPreviewSrc, referenceChipId, serializePromptReferenceToken, type PromptReferenceToken } from "./promptTokens";
 
 let promptTokenInstanceCounter = 0;
 
@@ -12,6 +12,7 @@ function tokenElement(documentRef: Document, token: PromptReferenceToken, figure
   element.dataset.tokenKind = token.kind;
   element.dataset.tokenId = token.id;
   element.dataset.tokenLabel = token.label;
+  element.dataset.referenceChipId = referenceChipId(token);
   if (token.objectKind) {
     element.dataset.tokenObjectKind = token.objectKind;
   }
@@ -135,14 +136,6 @@ function moveCaretToPoint(root: HTMLDivElement, clientX: number, clientY: number
       return true;
     }
   }
-  if (typeof documentRef.caretRangeFromPoint === "function") {
-    const range = documentRef.caretRangeFromPoint(clientX, clientY);
-    if (range && root.contains(range.startContainer)) {
-      selection.removeAllRanges();
-      selection.addRange(range);
-      return true;
-    }
-  }
   return false;
 }
 
@@ -160,6 +153,23 @@ function insertReferenceAtSelection(root: HTMLDivElement, token: PromptReference
   const fragment = root.ownerDocument.createDocumentFragment();
   fragment.appendChild(tokenElement(root.ownerDocument, token, figureContext));
   fragment.appendChild(root.ownerDocument.createTextNode(" "));
+  range.insertNode(fragment);
+  selection.removeAllRanges();
+  moveCaretToEnd(root);
+}
+
+function insertPromptTextAtSelection(root: HTMLDivElement, value: string, figureContext: CodexFigureContext | null): void {
+  root.focus();
+  const selection = window.getSelection();
+  const fragment = buildPromptFragment(root.ownerDocument, value, figureContext);
+  fragment.appendChild(root.ownerDocument.createTextNode(" "));
+  if (!selection || selection.rangeCount === 0) {
+    root.appendChild(fragment);
+    moveCaretToEnd(root);
+    return;
+  }
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
   range.insertNode(fragment);
   selection.removeAllRanges();
   moveCaretToEnd(root);
@@ -185,7 +195,31 @@ export function PromptEditor(props: {
 }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const suppressTokenClickRef = useRef(false);
+  const dragDepthRef = useRef(0);
   const empty = useMemo(() => !props.value, [props.value]);
+  const [dropState, setDropState] = useState<"idle" | "ready" | "over">("idle");
+
+  useEffect(() => {
+    function updateDropState(event: DragEvent): void {
+      const types = Array.from(event.dataTransfer?.types ?? []);
+      const compatible = types.includes(CODEX_PROMPT_REFERENCE_MIME) || types.includes("text/plain");
+      setDropState((current) => (current === "over" ? current : compatible ? "ready" : "idle"));
+    }
+
+    function clearDropState(): void {
+      dragDepthRef.current = 0;
+      setDropState("idle");
+    }
+
+    window.addEventListener("dragover", updateDropState);
+    window.addEventListener("drop", clearDropState);
+    window.addEventListener("dragend", clearDropState);
+    return () => {
+      window.removeEventListener("dragover", updateDropState);
+      window.removeEventListener("drop", clearDropState);
+      window.removeEventListener("dragend", clearDropState);
+    };
+  }, []);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -207,6 +241,7 @@ export function PromptEditor(props: {
       aria-disabled={props.disabled}
       data-placeholder={props.placeholder}
       data-empty={empty ? "true" : "false"}
+      data-drop-state={dropState}
       onInput={(event) => {
         props.onChange(serializePrompt(event.currentTarget));
       }}
@@ -216,15 +251,35 @@ export function PromptEditor(props: {
       onPaste={(event) => {
         event.preventDefault();
         const text = event.clipboardData.getData("text/plain");
-        document.execCommand("insertText", false, text);
+        insertPromptTextAtSelection(event.currentTarget, text, props.figureContext);
+        props.onChange(serializePrompt(event.currentTarget));
       }}
       onDragOver={(event) => {
         if (props.disabled) {
           return;
         }
-        if (event.dataTransfer.types.includes(CODEX_PROMPT_REFERENCE_MIME)) {
+        if (event.dataTransfer.types.includes(CODEX_PROMPT_REFERENCE_MIME) || event.dataTransfer.types.includes("text/plain")) {
           event.preventDefault();
+          setDropState("over");
           event.dataTransfer.dropEffect = event.dataTransfer.types.includes(CODEX_PROMPT_REFERENCE_MOVE_MIME) ? "move" : "copy";
+        }
+      }}
+      onDragEnter={(event) => {
+        if (props.disabled) {
+          return;
+        }
+        if (event.dataTransfer.types.includes(CODEX_PROMPT_REFERENCE_MIME) || event.dataTransfer.types.includes("text/plain")) {
+          dragDepthRef.current += 1;
+          setDropState("over");
+        }
+      }}
+      onDragLeave={() => {
+        if (props.disabled) {
+          return;
+        }
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) {
+          setDropState("ready");
         }
       }}
       onDragStart={(event) => {
@@ -259,26 +314,37 @@ export function PromptEditor(props: {
         if (props.disabled) {
           return;
         }
-        const serialized = event.dataTransfer.getData(CODEX_PROMPT_REFERENCE_MIME);
-        if (!serialized) {
-          return;
-        }
-        event.preventDefault();
-        const token = JSON.parse(serialized) as PromptReferenceToken;
-        const movingInstance = event.dataTransfer.getData(CODEX_PROMPT_REFERENCE_MOVE_MIME);
+        dragDepthRef.current = 0;
+        setDropState("idle");
         if (!moveCaretToPoint(event.currentTarget, event.clientX, event.clientY) && !selectionCaretInside(event.currentTarget)) {
           moveCaretToEnd(event.currentTarget);
         }
-        insertReferenceAtSelection(event.currentTarget, token, props.figureContext);
-        if (movingInstance) {
-          const staleToken = event.currentTarget.querySelector(`[data-token-instance="${movingInstance}"]`);
-          if (staleToken instanceof HTMLElement) {
-            staleToken.remove();
+        const serialized = event.dataTransfer.getData(CODEX_PROMPT_REFERENCE_MIME);
+        if (serialized) {
+          event.preventDefault();
+          const token = JSON.parse(serialized) as PromptReferenceToken;
+          const movingInstance = event.dataTransfer.getData(CODEX_PROMPT_REFERENCE_MOVE_MIME);
+          insertReferenceAtSelection(event.currentTarget, token, props.figureContext);
+          if (movingInstance) {
+            const staleToken = event.currentTarget.querySelector(`[data-token-instance="${movingInstance}"]`);
+            if (staleToken instanceof HTMLElement) {
+              staleToken.remove();
+            }
           }
+          props.onChange(serializePrompt(event.currentTarget));
+          return;
         }
+        const text = event.dataTransfer.getData("text/plain");
+        if (!text) {
+          return;
+        }
+        event.preventDefault();
+        insertPromptTextAtSelection(event.currentTarget, text, props.figureContext);
         props.onChange(serializePrompt(event.currentTarget));
       }}
       onDragEnd={() => {
+        dragDepthRef.current = 0;
+        setDropState("idle");
         window.setTimeout(() => {
           suppressTokenClickRef.current = false;
         }, 0);

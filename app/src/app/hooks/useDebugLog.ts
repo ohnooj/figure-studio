@@ -5,51 +5,11 @@ import { API_ROOT } from "../../shared/api/client";
 type DebugLogEvent = {
   source: string;
   label: string;
-  payload: unknown | null;
+  payload: unknown;
   clientTimestamp: string;
 };
 
 const DEBUG_LOG_FLUSH_MS = 200;
-const DEBUG_LOG_MAX_CHARS = 4000;
-
-function normalizeDebugValue(value: unknown): unknown {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? Number(value.toFixed(6)) : value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => normalizeDebugValue(entry));
-  }
-  if (value && typeof value === "object") {
-    const normalizedEntries = Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-      key,
-      normalizeDebugValue(entry),
-    ]);
-    return Object.fromEntries(normalizedEntries);
-  }
-  return value;
-}
-
-function formatDebugPayload(payload: unknown): string {
-  if (payload === undefined) {
-    return "";
-  }
-  if (typeof payload === "string") {
-    return payload;
-  }
-  try {
-    const serialized = JSON.stringify(normalizeDebugValue(payload));
-    if (!serialized) {
-      return String(payload);
-    }
-    if (serialized.length <= DEBUG_LOG_MAX_CHARS) {
-      return serialized;
-    }
-    return `${serialized.slice(0, DEBUG_LOG_MAX_CHARS)}...<truncated>`;
-  } catch {
-    return String(payload);
-  }
-}
-
 function isHighFrequencyDebugEvent(label: string): boolean {
   return label.endsWith(".input")
     || label.endsWith(".preview")
@@ -57,7 +17,7 @@ function isHighFrequencyDebugEvent(label: string): boolean {
     || label.startsWith("selection.overlay-refresh.");
 }
 
-function isEscalationDebugEvent(label: string, payload: unknown | null): boolean {
+function isEscalationDebugEvent(label: string, payload: unknown): boolean {
   if (label.endsWith(".slow")) {
     return true;
   }
@@ -71,7 +31,7 @@ function isEscalationDebugEvent(label: string, payload: unknown | null): boolean
   return false;
 }
 
-function shouldSendToBackend(label: string, payload: unknown | null): boolean {
+function shouldSendToBackend(label: string, payload: unknown): boolean {
   if (isEscalationDebugEvent(label, payload)) {
     return true;
   }
@@ -142,8 +102,6 @@ export function useDebugLog(debugLogging: boolean) {
       return;
     }
     const clientTimestamp = new Date().toISOString();
-    const formattedPayload = payload === undefined ? "" : ` ${formatDebugPayload(payload)}`;
-    console.log(`[figure-debug ${clientTimestamp}] ${label}${formattedPayload}`);
     const event: DebugLogEvent = {
       source: "frontend",
       label,

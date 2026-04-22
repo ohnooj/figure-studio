@@ -10,7 +10,6 @@ import {
   MIN_CODEX_MARKS_HEIGHT,
   MIN_LEFT_WIDTH,
   MIN_OBJECT_HEIGHT,
-  MIN_PAYLOAD_HEIGHT,
   MIN_RIGHT_WIDTH,
 } from "../constants";
 

@@ -1,5 +1,5 @@
 import type { CodexAnnotation } from "../../shared/types/editor";
-import { CODEX_PROMPT_REFERENCE_MIME, annotationPromptLabel, renderPromptTokenContent, serializePromptReferenceToken } from "./promptTokens";
+import { CODEX_PROMPT_REFERENCE_MIME, annotationPromptLabel, referenceChipId, renderPromptTokenContent, serializePromptReferenceToken } from "./promptTokens";
 
 export function AnnotationMarksPanel(props: {
   height: number;
@@ -39,6 +39,7 @@ export function AnnotationMarksPanel(props: {
                 return (
               <button
                 className={className}
+                data-reference-chip-id={referenceChipId({ kind: "annotation", id: annotation.id, label: annotationPromptLabel(annotation, index) })}
                 draggable
                 onDragStart={(event) => {
                   const token = {

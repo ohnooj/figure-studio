@@ -1,5 +1,3 @@
-import { elementFrame } from "./selection";
-
 export function elementLocalToWorldMatrix(element: SVGElement): DOMMatrix {
   return asGraphicsElement(element)?.getCTM() ?? new DOMMatrix();
 }
@@ -21,20 +19,6 @@ export function reparentElementPreservingWorldTransform(
   nextParent.insertBefore(element, insertBefore);
   const parentWorld = asGraphicsElement(nextParent)?.getCTM() ?? new DOMMatrix();
   setTransformMatrix(element, parentWorld.inverse().multiply(currentWorld));
-}
-
-export function elementWorldToLocalRect(element: SVGElement): { x: number; y: number; width: number; height: number } {
-  const frame = elementFrame(element);
-  const parentGraphic = element.parentElement && "getCTM" in element.parentElement ? element.parentElement as unknown as SVGGraphicsElement : null;
-  const inverse = (parentGraphic?.getCTM() ?? new DOMMatrix()).inverse();
-  const topLeft = new DOMPoint(frame.x, frame.y).matrixTransform(inverse);
-  const bottomRight = new DOMPoint(frame.x + frame.width, frame.y + frame.height).matrixTransform(inverse);
-  return {
-    x: topLeft.x,
-    y: topLeft.y,
-    width: bottomRight.x - topLeft.x,
-    height: bottomRight.y - topLeft.y,
-  };
 }
 
 function asGraphicsElement(element: SVGElement): SVGGraphicsElement | null {

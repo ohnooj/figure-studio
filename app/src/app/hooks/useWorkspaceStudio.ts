@@ -193,7 +193,7 @@ export function useWorkspaceStudio() {
           }
           const workspaceSnapshot = workspaceRef.current;
           for (const figure of workspaceSnapshot?.figures ?? []) {
-            if (payload.path.startsWith(`${figure.folder}/`) || payload.path === `${figure.folder}`) {
+            if (payload.path.startsWith(`${figure.folder}/`) || payload.path === figure.folder) {
               if (figure.id === activeFigureRef.current) {
                 void loadFigure(figure.id, true);
               }

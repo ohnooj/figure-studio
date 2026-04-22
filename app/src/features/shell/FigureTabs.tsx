@@ -1,6 +1,6 @@
 import { useRef } from "react";
 
-import { useScrollShadowState } from "../../app/hooks/useScrollShadowState";
+import { useScrollShadowState } from "../../shared/hooks/useScrollShadowState";
 import type { FigureEntry } from "../../shared/types/editor";
 
 export function FigureTabs(props: {

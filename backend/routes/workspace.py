@@ -6,7 +6,6 @@ from ..models import WorkspacePayload
 from ..runtime import broker
 from ..services.workspace import TEMPLATE_LIBRARY, save_workspace, workspace
 
-
 router = APIRouter()
 
 

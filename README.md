@@ -1,5 +1,10 @@
 # Figure Studio
 
+[![Quality](https://github.com/ohnooj/figure-studio/actions/workflows/quality.yml/badge.svg)](https://github.com/ohnooj/figure-studio/actions/workflows/quality.yml)
+[![Security](https://github.com/ohnooj/figure-studio/actions/workflows/security.yml/badge.svg)](https://github.com/ohnooj/figure-studio/actions/workflows/security.yml)
+[![CodeQL](https://github.com/ohnooj/figure-studio/actions/workflows/codeql.yml/badge.svg)](https://github.com/ohnooj/figure-studio/actions/workflows/codeql.yml)
+[![Maintenance Audit](https://github.com/ohnooj/figure-studio/actions/workflows/maintenance-audit.yml/badge.svg)](https://github.com/ohnooj/figure-studio/actions/workflows/maintenance-audit.yml)
+
 Figure Studio is an SVG-first editor for building and revising paper figures in this repository. The source of truth for each figure is `figures/<figure-id>/figure.svg`, and the app is built around editing those SVGs directly rather than generating figures from another format.
 
 ## Purpose
@@ -50,6 +55,34 @@ If the frontend needs an explicit API target:
 cd app
 VITE_API_ROOT=http://127.0.0.1:8123 npm run dev
 ```
+
+## Quality And Security
+
+Local quality gate:
+
+```bash
+make check
+```
+
+Local security-focused checks:
+
+```bash
+cd app
+npm run check:security
+```
+
+GitHub automation:
+
+- `quality`: frontend and backend formatting, lint, type checks, unit tests, compile checks, and production build
+- `security`: npm dependency audit, Python dependency audit via `pip-audit`, OSV dependency scanning, Trivy repository scanning, and Gitleaks secret scanning
+- `codeql`: GitHub code scanning for TypeScript/TSX and Python
+- `maintenance-audit`: repo maintenance checks such as dead code and dependency boundaries
+
+Repository settings recommended on GitHub:
+
+- enable Dependabot alerts and Dependabot security updates
+- enable GitHub secret scanning where your repo plan supports it
+- protect `main` with required status checks for `quality`, `security`, and `codeql`
 
 ## Workflow
 

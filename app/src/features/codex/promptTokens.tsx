@@ -9,17 +9,17 @@ export type PromptReferenceToken = {
   kind: "object" | "annotation" | "gallery";
   id: string;
   label: string;
-  objectKind?: EditableKind | string;
+  objectKind?: string;
 };
 
-export type PromptSegment =
+type PromptSegment =
   | { type: "text"; text: string }
   | { type: "token"; token: PromptReferenceToken };
 
-const TOKEN_PATTERN = /\[\[(object|annotation|gallery):([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]\]/g;
+const TOKEN_PATTERN = /\[\[(object|annotation|gallery):([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?]]/g;
 
 function sanitizeTokenValue(value: string): string {
-  return value.replace(/[\]\|\r\n]+/g, " ").trim();
+  return value.replace(/[\]\r\n|]+/g, " ").trim();
 }
 
 export function objectPromptLabel(item: CodexSelectedObjectSummary): string {
@@ -41,6 +41,10 @@ export function annotationPromptLabel(annotation: CodexAnnotation, index: number
 export function serializePromptReferenceToken(token: PromptReferenceToken): string {
   const objectKindSuffix = token.kind === "object" && token.objectKind ? `|${sanitizeTokenValue(token.objectKind)}` : "";
   return `[[${token.kind}:${sanitizeTokenValue(token.id)}|${sanitizeTokenValue(token.label)}${objectKindSuffix}]]`;
+}
+
+export function referenceChipId(token: PromptReferenceToken): string {
+  return `${token.kind}:${sanitizeTokenValue(token.id)}`;
 }
 
 export function parsePromptSegments(value: string): PromptSegment[] {
@@ -177,7 +181,20 @@ function renderTextSegment(text: string): ReactNode[] {
   return nodes;
 }
 
-export function renderPromptSegments(value: string, context?: CodexFigureContext | null): ReactNode[] {
+export function renderPromptSegments(
+  value: string,
+  options?: {
+    context?: CodexFigureContext | null;
+    draggable?: boolean;
+    selectedObjectIds?: string[];
+    linkedObjectIds?: string[];
+    hoveredObjectId?: string;
+    selectedAnnotationId?: string;
+    hoveredAnnotationId?: string;
+    onHoverObject?: (id: string) => void;
+    onHoverAnnotation?: (id: string) => void;
+  },
+): ReactNode[] {
   return parsePromptSegments(value).flatMap((segment, index) => {
     if (segment.type === "text") {
       return (
@@ -186,13 +203,51 @@ export function renderPromptSegments(value: string, context?: CodexFigureContext
         </span>
       );
     }
+    const token = segment.token;
+    const linkedObjectIds = options?.linkedObjectIds ?? [];
+    const selectedObjectIds = options?.selectedObjectIds ?? [];
+    const classes = [
+      "codex-prompt-token",
+      `codex-prompt-token-${token.kind}`,
+      "codex-reference-chip",
+      token.kind === "annotation" ? "codex-reference-chip-annotation" : "",
+      token.kind === "annotation" && options?.selectedAnnotationId === token.id ? "active" : "",
+      token.kind === "annotation" && options?.hoveredAnnotationId === token.id ? "hovered" : "",
+      token.kind === "object" && selectedObjectIds.includes(token.id) ? "active" : "",
+      token.kind === "object" && (options?.hoveredObjectId === token.id || linkedObjectIds.includes(token.id)) ? "linked" : "",
+    ].filter(Boolean).join(" ");
     return (
       <span
         key={`token-${index}`}
-        className={`codex-prompt-token codex-prompt-token-${segment.token.kind}`}
-        title={`${segment.token.kind}: ${segment.token.id}`}
+        className={classes}
+        title={`${token.kind}: ${token.id}`}
+        data-reference-chip-id={referenceChipId(token)}
+        draggable={options?.draggable}
+        onDragStart={options?.draggable ? ((event) => {
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData(CODEX_PROMPT_REFERENCE_MIME, JSON.stringify(token));
+          event.dataTransfer.setData("text/plain", serializePromptReferenceToken(token));
+        }) : undefined}
+        onMouseEnter={() => {
+          if (token.kind === "annotation") {
+            options?.onHoverAnnotation?.(token.id);
+            return;
+          }
+          if (token.kind === "object") {
+            options?.onHoverObject?.(token.id);
+          }
+        }}
+        onMouseLeave={() => {
+          if (token.kind === "annotation") {
+            options?.onHoverAnnotation?.("");
+            return;
+          }
+          if (token.kind === "object") {
+            options?.onHoverObject?.("");
+          }
+        }}
       >
-        {renderPromptTokenContent(segment.token, context)}
+        {renderPromptTokenContent(token, options?.context)}
       </span>
     );
   });

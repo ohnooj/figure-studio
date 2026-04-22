@@ -1,0 +1,16 @@
+{
+  "include": ["backend"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": false,
+  "reportUnknownArgumentType": true,
+  "reportUnknownLambdaType": true,
+  "reportUnknownMemberType": true,
+  "reportUnknownParameterType": true,
+  "reportUnknownVariableType": true,
+  "reportUntypedBaseClass": true,
+  "reportUntypedClassDecorator": true,
+  "reportUntypedFunctionDecorator": true,
+  "reportUntypedNamedTuple": true
+}

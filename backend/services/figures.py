@@ -3,100 +3,117 @@ from __future__ import annotations
 import mimetypes
 import shutil
 from pathlib import Path
+from typing import SupportsInt, cast
 
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from ..models import FigureMetadataPayload
-from .files import IMAGE_SUFFIXES, is_image_file, list_asset_items, resolve_from_root, unique_destination
+from .files import (
+    IMAGE_SUFFIXES,
+    is_image_file,
+    list_asset_items,
+    resolve_from_root,
+    unique_destination,
+)
 from .workspace import (
-  DEFAULT_TEMPLATE_ID,
-  TEMPLATE_LIBRARY,
-  assert_within_allowed_sources,
-  bookmark_entries,
-  figure_entry,
-  figure_entry_svg,
-  figure_files,
-  figure_folder,
-  next_figure_id,
-  save_workspace,
-  template_entry,
-  template_svg,
-  workspace,
+    DEFAULT_TEMPLATE_ID,
+    assert_within_allowed_sources,
+    bookmark_entries,
+    figure_entry,
+    figure_entry_svg,
+    figure_files,
+    figure_folder,
+    next_figure_id,
+    object_dicts,
+    save_workspace,
+    template_entry,
+    template_svg,
+    workspace,
 )
 
 
+def workspace_version(current: dict[str, object]) -> int:
+    value = current.get("version", 3)
+    if isinstance(value, SupportsInt):
+        return int(value)
+    return 3
+
+
 def create_figure_entry(raw_id: str, raw_title: str, raw_template_id: str) -> dict[str, object]:
-  figure_id = raw_id.strip() or next_figure_id()
-  title = raw_title.strip() or figure_id.replace("-", " ").title()
-  template_id = raw_template_id.strip() or DEFAULT_TEMPLATE_ID
-  template_entry(template_id)
+    figure_id = raw_id.strip() or next_figure_id()
+    title = raw_title.strip() or figure_id.replace("-", " ").title()
+    template_id = raw_template_id.strip() or DEFAULT_TEMPLATE_ID
+    template_entry(template_id)
 
-  folder_rel = f"figures/{figure_id}"
-  folder = resolve_from_root(folder_rel)
-  if folder.exists():
-    raise HTTPException(status_code=409, detail=f"figure already exists: {figure_id}")
+    folder_rel = f"figures/{figure_id}"
+    folder = resolve_from_root(folder_rel)
+    if folder.exists():
+        raise HTTPException(status_code=409, detail=f"figure already exists: {figure_id}")
 
-  folder.mkdir(parents=True, exist_ok=True)
-  (folder / "assets").mkdir(exist_ok=True)
-  (folder / "figure.svg").write_text(template_svg(template_id, title), encoding="utf-8")
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "assets").mkdir(exist_ok=True)
+    (folder / "figure.svg").write_text(template_svg(template_id, title), encoding="utf-8")
 
-  current = workspace()
-  figures = current.get("figures", [])
-  if not isinstance(figures, list):
-    figures = []
-  figures.append(
-    {
-      "id": figure_id,
-      "title": title,
-      "description": "",
-      "folder": folder_rel,
-      "entrySvg": "figure.svg",
-      "templateId": template_id,
-      "publishTargets": [
-        f"published/{figure_id}.pdf",
-        f"published/{figure_id}.svg",
-        f"published/{figure_id}.tex",
-      ],
-    }
-  )
-  current["figures"] = figures
+    current = workspace()
+    raw_figures = current.get("figures", [])
+    if not isinstance(raw_figures, list):
+        figures: list[dict[str, object]] = []
+    else:
+        figure_items = cast(list[object], raw_figures)
+        figures = [cast(dict[str, object], item) for item in figure_items if isinstance(item, dict)]
+    figures.append(
+        {
+            "id": figure_id,
+            "title": title,
+            "description": "",
+            "folder": folder_rel,
+            "entrySvg": "figure.svg",
+            "templateId": template_id,
+            "publishTargets": [
+                f"published/{figure_id}.pdf",
+                f"published/{figure_id}.svg",
+                f"published/{figure_id}.tex",
+            ],
+        }
+    )
+    current["figures"] = figures
 
-  recent = current.get("recentFigureIds", [])
-  if not isinstance(recent, list):
-    recent = []
-  if figure_id not in recent:
-    recent.insert(0, figure_id)
-  current["recentFigureIds"] = recent
-  current["version"] = max(int(current.get("version", 3) or 3), 3)
-  save_workspace(current)
-  return {"ok": True, "id": figure_id}
+    raw_recent = current.get("recentFigureIds", [])
+    recent = [str(item) for item in cast(list[object], raw_recent)] if isinstance(raw_recent, list) else []
+    if figure_id not in recent:
+        recent.insert(0, figure_id)
+    current["recentFigureIds"] = recent
+    current["version"] = max(workspace_version(current), 3)
+    save_workspace(current)
+    return {"ok": True, "id": figure_id}
 
 
 def update_figure_metadata_entry(figure_id: str, payload: FigureMetadataPayload) -> dict[str, object]:
-  title = payload.title.strip()
-  if not title:
-    raise HTTPException(status_code=400, detail="figure title is required")
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="figure title is required")
 
-  current = workspace()
-  figures = current.get("figures", [])
-  if not isinstance(figures, list):
-    raise HTTPException(status_code=500, detail="workspace figures must be a list")
+    current = workspace()
+    raw_figures = current.get("figures", [])
+    if not isinstance(raw_figures, list):
+        raise HTTPException(status_code=500, detail="workspace figures must be a list")
 
-  updated: dict[str, object] | None = None
-  for item in figures:
-    if isinstance(item, dict) and str(item.get("id", "")).strip() == figure_id:
-      item["title"] = title
-      item["description"] = payload.description.strip()
-      updated = item
-      break
+    figures = object_dicts(cast(object, raw_figures))
+    updated: dict[str, object] | None = None
+    for item in figures:
+        if str(item.get("id", "")).strip() == figure_id:
+            item["title"] = title
+            item["description"] = payload.description.strip()
+            updated = item
+            break
 
-  if updated is None:
-    raise HTTPException(status_code=404, detail=f"Unknown figure: {figure_id}")
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"Unknown figure: {figure_id}")
 
-  current["figures"] = figures
-  save_workspace(current)
-  return {"ok": True, "figure": updated}
+    current["figures"] = figures
+    save_workspace(current)
+    return {"ok": True, "figure": updated}
 
 
 def get_figure_payload(figure_id: str) -> dict[str, object]:

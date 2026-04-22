@@ -1,4 +1,4 @@
-import type { EditableKind, SelectedElement } from "../../types/editor";
+import type { SelectedElement } from "../../types/editor";
 import { elementKind } from "./selectability";
 
 export function selectedFromElement(element: SVGElement): SelectedElement {

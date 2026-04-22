@@ -1,5 +1,4 @@
-import { API_ROOT } from "./client";
-import { api } from "./client";
+import { API_ROOT, api } from "./client";
 import type { FigureAssets } from "../types/editor";
 
 export function fetchFigureAssets(figureId: string): Promise<FigureAssets> {

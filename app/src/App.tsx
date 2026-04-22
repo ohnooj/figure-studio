@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useAppShellState } from "./app/hooks/useAppShellState";
 import { useCanvasInteractions } from "./app/hooks/useCanvasInteractions";
+import { useCodexGalleryController } from "./app/hooks/useCodexGalleryController";
 import { useCodexAnnotations } from "./app/hooks/useCodexAnnotations";
+import { useCurrentEditorSnapshot } from "./app/hooks/useCurrentEditorSnapshot";
 import { useDebugLog } from "./app/hooks/useDebugLog";
 import { useEditorClipboard } from "./app/hooks/useEditorClipboard";
 import { useEditorHistory } from "./app/hooks/useEditorHistory";
@@ -16,9 +19,9 @@ import { usePaneResizers } from "./app/hooks/usePaneResizers";
 import { useStudioPanels } from "./app/hooks/useStudioPanels";
 import { useStudioChrome } from "./app/hooks/useStudioChrome";
 import { useTextEditing } from "./app/hooks/useTextEditing";
+import { useToastNotifications } from "./app/hooks/useToastNotifications";
 import { useViewportState } from "./app/hooks/useViewportState";
 import { useWorkspaceStudio } from "./app/hooks/useWorkspaceStudio";
-import { buildGalleryCardTree, galleryCardsForRun } from "./features/codex/CodexCanvasGallery";
 import { AppToolbar } from "./features/shell/AppToolbar";
 import { HotkeysOverlay } from "./features/shell/HotkeysOverlay";
 import { NotificationHistoryOverlay } from "./features/shell/NotificationHistoryOverlay";
@@ -27,7 +30,7 @@ import { Toast } from "./features/shell/Toast";
 import { BackendBlocker } from "./features/workspace/BackendBlocker";
 import { TemplatePickerModal } from "./features/workspace/TemplatePickerModal";
 import { selectedFromElement } from "./shared/lib/svg/selection";
-import type { CodexRun, CodexSelectedObjectSummary, InteractionMode, NotificationEntry, ToastTone, ToolMode } from "./shared/types/editor";
+import type { CodexSelectedObjectSummary } from "./shared/types/editor";
 
 export default function App() {
   const {
@@ -77,21 +80,28 @@ export default function App() {
     cancelRename,
     commitRename,
   } = useWorkspaceStudio();
-
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>("resize");
-  const [toolMode, setToolMode] = useState<ToolMode>("select");
-  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
-  const [hotkeysOpen, setHotkeysOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationEntries, setNotificationEntries] = useState<NotificationEntry[]>([]);
-  const [codexGalleryRun, setCodexGalleryRun] = useState<CodexRun | null>(null);
-  const [codexGalleryVisible, setCodexGalleryVisible] = useState(false);
-  const [focusedGalleryCardId, setFocusedGalleryCardId] = useState("");
+  const {
+    interactionMode,
+    setInteractionMode,
+    toolMode,
+    setToolMode,
+    rightPanelMode,
+    setRightPanelMode,
+    hotkeysOpen,
+    setHotkeysOpen,
+  } = useAppShellState();
+  const {
+    toast,
+    notificationsOpen,
+    notificationEntries,
+    showToast,
+    openNotificationHistory,
+    closeNotificationHistory,
+  } = useToastNotifications();
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [newAttributeName, setNewAttributeName] = useState("");
   const [newAttributeValue, setNewAttributeValue] = useState("");
   const [treeDropTarget, setTreeDropTarget] = useState("none");
-  const [rightPanelMode, setRightPanelMode] = useState<"inspector" | "codex">("codex");
   const [hoveredObjectId, setHoveredObjectId] = useState("");
 
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -103,40 +113,8 @@ export default function App() {
   const codexBottomSectionsRef = useRef<HTMLDivElement | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const selectedIdsRef = useRef<string[]>([]);
-  const toastTimerRef = useRef<number | null>(null);
   const treeDragIdsRef = useRef<string[]>([]);
   const debugLog = useDebugLog(debugLogging);
-
-  function showToast(message: string, tone: ToastTone = "success"): void {
-    setToast({ message, tone });
-    if (tone === "error") {
-      setNotificationEntries((current) => [
-        {
-          id: `notification-${Date.now()}-${current.length}`,
-          message,
-          tone,
-          createdAt: Date.now(),
-        },
-        ...current,
-      ]);
-    }
-    if (toastTimerRef.current !== null) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = window.setTimeout(() => {
-      setToast(null);
-      toastTimerRef.current = null;
-    }, 1800);
-  }
-
-  function openNotificationHistory(): void {
-    setNotificationsOpen(true);
-    if (toastTimerRef.current !== null) {
-      window.clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-    setToast(null);
-  }
 
   const {
     viewport,
@@ -179,24 +157,53 @@ export default function App() {
 
   const { pushHistoryCheckpoint, undo: popUndoSnapshot, redo: popRedoSnapshot } = useEditorHistory();
   const activeSource = activeFigureId ? sources[activeFigureId] : null;
-  const activeAssets = activeFigureId ? assets[activeFigureId] : null;
-  const selectedObjectSummaries: CodexSelectedObjectSummary[] = selectedElements().map((item) => selectedFromElement(item));
-  const currentEditorSnapshot = useCallback(() => {
-    const root = svgRoot();
-    if (!root) {
-      return null;
-    }
-    return {
-      svg: currentSvgString(),
-      description: descriptionDraft,
-      selectedIds: selectedIdsRef.current,
-      viewport,
-    };
-  }, [currentSvgString, descriptionDraft, selectedIdsRef, svgRoot, viewport]);
   const handleCodexStatus = useCallback((message: string, tone: "success" | "error" | "info" = "info"): void => {
     setStatus(message);
     showToast(message, tone);
-  }, [setStatus]);
+  }, [setStatus, showToast]);
+  const {
+    codexGalleryRun,
+    codexGalleryVisible,
+    focusedGalleryCardId,
+    setFocusedGalleryCardId,
+    focusedCodexVariantSession,
+    focusedCodexVariant,
+    galleryObjectTree,
+    toggleCodexGallery,
+    handleApplyCodexVariant,
+    handleRejectCodexVariant,
+  } = useCodexGalleryController({
+    activeFigureId,
+    setRightPanelMode,
+    onStatus: handleCodexStatus,
+  });
+  const tuningCanvasSource = useMemo(() => {
+    if (!activeSource || !focusedCodexVariantSession) {
+      return null;
+    }
+    const variant = focusedCodexVariantSession.run.variants.find((item) => item.id === focusedCodexVariantSession.variantId) ?? null;
+    if (!variant) {
+      return null;
+    }
+    const svg = variant.interactivePreviewSvg ?? variant.latestPreviewSvg ?? "";
+    if (!svg.includes("<svg")) {
+      return null;
+    }
+    return {
+      ...activeSource,
+      svg,
+    };
+  }, [activeSource, focusedCodexVariantSession]);
+  const canvasSource = tuningCanvasSource ?? activeSource;
+  const activeAssets = activeFigureId ? assets[activeFigureId] : null;
+  const selectedObjectSummaries: CodexSelectedObjectSummary[] = selectedElements().map((item) => selectedFromElement(item));
+  const currentEditorSnapshot = useCurrentEditorSnapshot({
+    currentSvgString,
+    descriptionDraft,
+    selectedIdsRef,
+    svgRoot,
+    viewport,
+  });
   const handleAlignmentToggle = useCallback((): void => {
     setAlignmentEnabled((current) => {
       const next = !current;
@@ -205,7 +212,7 @@ export default function App() {
       showToast(message, "info");
       return next;
     });
-  }, [setAlignmentEnabled, setStatus]);
+  }, [setAlignmentEnabled, setStatus, showToast]);
 
   const {
     hasUnsavedChanges,
@@ -437,104 +444,6 @@ export default function App() {
   }
 
   useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const onCodexGallerySync = (event: Event): void => {
-      const detail = (event as CustomEvent<{ run: CodexRun | null }>).detail;
-      if (detail?.run) {
-        setCodexGalleryRun(detail.run);
-        setCodexGalleryVisible(true);
-        return;
-      }
-    };
-    window.addEventListener("paper_figures:codex_gallery_sync", onCodexGallerySync as EventListener);
-    return () => window.removeEventListener("paper_figures:codex_gallery_sync", onCodexGallerySync as EventListener);
-  }, []);
-
-  useEffect(() => {
-    if (!codexGalleryRun) {
-      return;
-    }
-    if (codexGalleryRun.targetFigureId && codexGalleryRun.targetFigureId !== activeFigureId) {
-      setCodexGalleryRun(null);
-      setCodexGalleryVisible(false);
-    }
-  }, [activeFigureId, codexGalleryRun]);
-
-  const galleryCards = useMemo(() => (codexGalleryRun ? galleryCardsForRun(codexGalleryRun) : []), [codexGalleryRun]);
-  useEffect(() => {
-    if (!galleryCards.length) {
-      setFocusedGalleryCardId("");
-      return;
-    }
-    if (!galleryCards.some((card) => card.id === focusedGalleryCardId)) {
-      setFocusedGalleryCardId(galleryCards[0]?.id ?? "");
-    }
-  }, [focusedGalleryCardId, galleryCards]);
-  const focusedGalleryCard = useMemo(
-    () => galleryCards.find((card) => card.id === focusedGalleryCardId) ?? galleryCards[0] ?? null,
-    [focusedGalleryCardId, galleryCards],
-  );
-  const galleryObjectTree = useMemo(() => buildGalleryCardTree(focusedGalleryCard), [focusedGalleryCard]);
-
-  useEffect(() => {
-    if (!hotkeysOpen) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setHotkeysOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [hotkeysOpen]);
-
-  useEffect(() => {
-    const savedRightPanelMode = window.localStorage.getItem("paper_figures.rightPanelMode");
-    if (savedRightPanelMode === "inspector" || savedRightPanelMode === "codex") {
-      setRightPanelMode(savedRightPanelMode);
-    }
-    const savedToolMode = window.localStorage.getItem("paper_figures.toolMode");
-    if (
-      savedToolMode === "select" ||
-      savedToolMode === "rectangle" ||
-      savedToolMode === "rounded-rectangle" ||
-      savedToolMode === "ellipse" ||
-      savedToolMode === "line" ||
-      savedToolMode === "arrow" ||
-      savedToolMode === "text" ||
-      savedToolMode === "image-slot" ||
-      savedToolMode === "curve"
-    ) {
-      setToolMode(savedToolMode);
-    }
-    const savedInteractionMode = window.localStorage.getItem("paper_figures.interactionMode");
-    if (savedInteractionMode === "resize" || savedInteractionMode === "scale") {
-      setInteractionMode(savedInteractionMode);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.rightPanelMode", rightPanelMode);
-  }, [rightPanelMode]);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.toolMode", toolMode);
-  }, [toolMode]);
-
-  useEffect(() => {
-    window.localStorage.setItem("paper_figures.interactionMode", interactionMode);
-  }, [interactionMode]);
-
-  useEffect(() => {
     if (toolMode === "select") {
       return;
     }
@@ -635,7 +544,7 @@ export default function App() {
 
   useFigureCanvasLifecycle({
     activeFigureId,
-    activeSource,
+    activeSource: canvasSource,
     galleryVisible: rightPanelMode === "codex" && codexGalleryVisible,
     setDescriptionDraft,
     setHasUnsavedChanges,
@@ -659,7 +568,7 @@ export default function App() {
       {notificationsOpen ? (
         <NotificationHistoryOverlay
           entries={notificationEntries}
-          onClose={() => setNotificationsOpen(false)}
+          onClose={closeNotificationHistory}
         />
       ) : null}
       {templatePickerOpen ? (
@@ -733,7 +642,7 @@ export default function App() {
         selectedResolvedStyle={selectedResolvedStyle}
         selectedInspectorCapabilities={selectedInspectorCapabilities}
         activeFigureId={activeFigureId}
-        activeSource={activeSource}
+        activeSource={canvasSource}
         activeAssets={activeAssets ?? null}
         actionState={actionState}
         rightPanelMode={rightPanelMode}
@@ -752,6 +661,8 @@ export default function App() {
         codexFigureContext={codexFigureContext}
         codexGalleryRun={codexGalleryRun}
         codexGalleryVisible={codexGalleryVisible}
+        focusedCodexControlRun={focusedCodexVariant ? focusedCodexVariantSession?.run ?? null : null}
+        focusedCodexControlVariant={focusedCodexVariant}
         focusedGalleryCardId={focusedGalleryCardId}
         marqueeBox={marqueeBox}
         alignmentGuides={alignmentGuides}
@@ -796,12 +707,7 @@ export default function App() {
         onToolModeChange={setToolMode}
         onCodexAnnotationToolChange={setCodexAnnotationTool}
         onCodexAnnotationColorChange={setCodexAnnotationColor}
-        onToggleCodexGallery={() => {
-          if (!codexGalleryRun) {
-            return;
-          }
-          setCodexGalleryVisible((current) => !current);
-        }}
+        onToggleCodexGallery={toggleCodexGallery}
         onInteractionModeChange={setInteractionMode}
         onToggleAlignment={handleAlignmentToggle}
         onAlignSelection={alignSelection}
@@ -842,6 +748,8 @@ export default function App() {
         onNewAttributeValueChange={setNewAttributeValue}
         onAddAttribute={addAttribute}
         onClearSlotImage={clearSlotImage}
+        onApplyCodexVariant={handleApplyCodexVariant}
+        onRejectCodexVariant={handleRejectCodexVariant}
       />
     </div>
   );
