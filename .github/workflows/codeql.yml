@@ -35,7 +35,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: matrix.language == 'python'
         with:
           python-version: "3.11"
