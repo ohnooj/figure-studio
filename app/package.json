@@ -40,7 +40,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "dependency-cruiser": "^16.10.4",
+    "dependency-cruiser": "^17.3.10",
     "eslint": "^9.26.0",
     "eslint-import-resolver-typescript": "^4.3.5",
     "eslint-plugin-import": "^2.31.0",
