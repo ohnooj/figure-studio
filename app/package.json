@@ -48,7 +48,7 @@
     "eslint-plugin-sonarjs": "^4.0.3",
     "eslint-plugin-unused-imports": "^4.1.4",
     "globals": "^15.15.0",
-    "knip": "^5.61.3",
+    "knip": "^6.6.0",
     "prettier": "^3.5.3",
     "pyright": "^1.1.400",
     "typescript": "^5.5.4",
