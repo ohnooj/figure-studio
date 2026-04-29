@@ -53,7 +53,7 @@
     "pyright": "^1.1.400",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.31.1",
-    "vite": "^8.0.9",
+    "vite": "^8.0.10",
     "vitest": "^3.1.2"
   }
 }
