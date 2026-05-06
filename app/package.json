@@ -52,7 +52,7 @@
     "prettier": "^3.5.3",
     "pyright": "^1.1.400",
     "typescript": "^5.5.4",
-    "typescript-eslint": "^8.31.1",
+    "typescript-eslint": "^8.59.2",
     "vite": "^8.0.9",
     "vitest": "^3.1.2"
   }
